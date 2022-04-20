@@ -4,18 +4,15 @@ import (
 	"testing"
 )
 
-
-
-func TestInsert(t *testing.T) {
-	sut := NewStore()
+func TestStoreGettingOrderKeyByValue(t *testing.T) {
+	sut := NewStore[int64, string]()
 
 	insert := func(key string, val int, log bool) {
-		/*sut, _ =*/ sut.Insert(IntLesser{KeyValue: key, Value: int64(val)})
+		/*sut, _ =*/ sut.Insert(BTreeLeaf[int64, string]{OrderKey: int64(val), Value: key})
 
-
-		data := make([]IntLesser, 0, 100)
-		visiter := func(v Lesser) {
-			data = append(data, v.(IntLesser))
+		data := make([]BTreeLeaf[int64, string], 0, 100)
+		visiter := func(v BTreeLeaf[int64, string]) {
+			data = append(data, v)
 		}
 
 		if log {
@@ -31,7 +28,7 @@ func TestInsert(t *testing.T) {
 	insert("3", 3, false)
 	insert("1", 1, false)
 	t.Log(sut.String())
-	
+
 	insert("20", 20, true)
 	insert("21", 21, true)
 	insert("18", 18, true)
