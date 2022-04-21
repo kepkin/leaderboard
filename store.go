@@ -1,12 +1,15 @@
 package leaderboard
 
 import (
+	"sync"
 	// "golang.org/x/exp/constraints"
 )
 
 type Store[K Ordered, V Ordered] struct {
 	btree   *Node[K, V]
 	pkbtree *Node[V, *Iter[K, V]]
+
+	mu sync.Mutex
 }
 
 func NewStore[K Ordered, V Ordered]() *Store[K, V] {
@@ -24,6 +27,9 @@ func (s *Store[K, V]) onSplit(value BTreeLeaf[K, V], itr *Iter[K, V]) {
 }
 
 func (s *Store[K, V]) Insert(value BTreeLeaf[K, V]) (*Iter[K, V], error) {
+	s.mu.Lock()
+    defer s.mu.Unlock()
+
 	var iter *Iter[K, V] = nil
 	s.btree, iter = s.btree.Insert(value)
 
@@ -34,6 +40,9 @@ func (s *Store[K, V]) Insert(value BTreeLeaf[K, V]) (*Iter[K, V], error) {
 }
 
 func (s *Store[K, V]) Get(key V) *Iter[K, V] {
+	s.mu.Lock()
+    defer s.mu.Unlock()
+    
 	pkbtreeValue := BTreeLeaf[V, *Iter[K, V]]{OrderKey: key, Value: nil}
 	iter := s.pkbtree.Find(pkbtreeValue)
 	if iter == nil {

@@ -22,6 +22,7 @@ func TestStoreGettingElementByValue(t *testing.T) {
 	assert.Equal(t, Int(11), v.Value().Value, "")
 }
 
+
 func TestStoreGettingElementWithLeaderTabel(t *testing.T) {
 	sut := buildStoreWithData(randomIntData...)
 

@@ -1,0 +1,14 @@
+version: "3.3"  # optional since v1.27.0
+services:
+  app:
+    build: .
+    ports:
+      - "8081:8080"
+
+
+  yatank:
+    image: direvius/yandex-tank
+    volumes:
+      - ./yandex-tank:/var/loadtest
+    depends_on:
+      - app

@@ -1,0 +1,21 @@
+phantom:
+  address: app:8080 # [Target's address]:[target's port]
+  writelog: proto_warning
+
+  ammo_type: uripost
+  ammofile: ammo-big.txt
+
+  load_profile:
+    load_type: rps # schedule load by defining requests per second
+    schedule: line(100, 1000, 10m) # starting from 1rps growing linearly to 10rps during 10 minutes
+
+console:
+  enabled: true # enable console output
+
+telegraf:
+  enabled: false # let's disable telegraf monitoring for the first time
+
+autostop:
+  autostop:
+    - http(5xx,10%,5s)
+    - http(4xx,10%,5s)
