@@ -23,14 +23,14 @@ func (s *Store[K, V]) onSplit(value BTreeLeaf[K, V], itr *Iter[K, V]) {
 	s.pkbtree, _ = s.pkbtree.Upsert(pkbtreeValue)
 }
 
-func (s *Store[K, V]) Insert(value BTreeLeaf[K, V]) ([]V, error) {
+func (s *Store[K, V]) Insert(value BTreeLeaf[K, V]) (*Iter[K, V], error) {
 	var iter *Iter[K, V] = nil
 	s.btree, iter = s.btree.Insert(value)
 
 	pkbtreeValue := BTreeLeaf[V, *Iter[K, V]]{OrderKey: value.Value, Value: iter}
 	s.pkbtree, _ = s.pkbtree.Upsert(pkbtreeValue)
 
-	return []V{}, nil
+	return iter, nil
 }
 
 func (s *Store[K, V]) Get(key V) *Iter[K, V] {
