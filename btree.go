@@ -6,9 +6,9 @@ import (
 	"golang.org/x/exp/constraints"
 )
 
-type OnSplitTrigger[K constraints.Ordered, V comparable] func(BTreeLeaf[K, V], *Node[K, V])
+type OnSplitTrigger[K constraints.Ordered, V comparable] func(BTreeLeaf[K, V], *Iter[K, V])
 
-func DummyOnSplit[K constraints.Ordered, V comparable](BTreeLeaf[K, V], *Node[K, V]) {}
+func DummyOnSplit[K constraints.Ordered, V comparable](BTreeLeaf[K, V], *Iter[K, V]) {}
 
 type BTreeLeaf[K constraints.Ordered, V comparable] struct {
 	OrderKey K
@@ -94,11 +94,11 @@ func (n *Node[K, V]) Split() *Node[K, V] {
 	upperNode.insertAt(idx, pivotValue)
 	upperNode.Childs[idx+1] = rightNode
 
-	n.OnSplit(pivotValue, upperNode)
+	n.OnSplit(pivotValue, &Iter[K,V]{upperNode, int(idx)})
 
 	rightNode.Data = append(rightNode.Data, leftNode.Data[n.Size/2+1:]...)
-	for _, v := range rightNode.Data {
-		n.OnSplit(v, rightNode)
+	for i, v := range rightNode.Data {
+		n.OnSplit(v, &Iter[K,V]{rightNode, i})
 	}
 
 	for i := uint16(0); i < n.Size/2+1; i += 1 {
@@ -112,16 +112,16 @@ func (n *Node[K, V]) Split() *Node[K, V] {
 	}
 
 	leftNode.Data = leftNode.Data[:n.Size/2]
-	for _, v := range leftNode.Data {
-		n.OnSplit(v, leftNode)
+	for i, v := range leftNode.Data {
+		n.OnSplit(v, &Iter[K,V]{leftNode, i})
 	}
 
 	return returnNode
 }
 
-func (n *Node[K, V]) Insert(newValue BTreeLeaf[K, V]) (*Node[K, V], *Node[K, V]) {
+func (n *Node[K, V]) Insert(newValue BTreeLeaf[K, V]) (*Node[K, V], *Iter[K, V]) {
 	lookupNode := n
-	insertedNode := n
+	var iter *Iter[K,V] = nil
 
 	if uint16(len(n.Data)) == n.Size {
 		n = n.Split()
@@ -133,20 +133,21 @@ func (n *Node[K, V]) Insert(newValue BTreeLeaf[K, V]) (*Node[K, V], *Node[K, V])
 
 	idx := lookupNode.FindIdxToInsert(newValue)
 	if lookupNode.Childs[idx] != nil {
-		lookupNode.Childs[idx], insertedNode = lookupNode.Childs[idx].Insert(newValue)
+		lookupNode.Childs[idx], iter = lookupNode.Childs[idx].Insert(newValue)
 	} else {
 		lookupNode.insertAt(idx, newValue)
-		insertedNode = lookupNode
+		iter = &Iter[K,V]{lookupNode, int(idx)}
 	}
 
-	return n, insertedNode
+	return n, iter
 }
 
-func (n *Node[K, V]) Upsert(newValue BTreeLeaf[K, V]) (*Node[K, V], *Node[K, V]) {
-	localNode, idx, ok := n.Find(newValue)
-	if localNode != nil && ok {
-		localNode.Data[idx] = newValue
-		return n, n
+func (n *Node[K, V]) Upsert(newValue BTreeLeaf[K, V]) (*Node[K, V], *Iter[K, V]) {
+	itr := n.Find(newValue)
+	if itr != nil {
+		localNode := itr.n
+		localNode.Data[itr.i] = newValue
+		return n, itr
 	}
 
 	return n.Insert(newValue)
@@ -162,27 +163,25 @@ func (n *Node[K, V]) LocalFindByValue(value V) (BTreeLeaf[K, V], bool) {
 	return BTreeLeaf[K, V]{}, false
 }
 
-func (n *Node[K, V]) Find(value BTreeLeaf[K, V]) (*Node[K, V], int, bool) {
+func (n *Node[K, V]) Find(value BTreeLeaf[K, V]) (*Iter[K, V]) {
 	for i, v := range n.Data {
 		if v.OrderKey < value.OrderKey {
 			continue
 		}
 
 		if value.OrderKey == v.OrderKey {
-			return n, i, true
+			return &Iter[K,V]{n, i}
 		} else { // Means we need to search left node
 			if n.Childs[i] == nil {
-				return nil, 0, false
+				return nil
 			}
 
 			return n.Childs[i].Find(value)
 		}
 	}
 
-	// meas
-
 	if n.Childs[n.Size] == nil {
-		return nil, 0, false
+		return nil
 	}
 
 	return n.Childs[n.Size].Find(value)

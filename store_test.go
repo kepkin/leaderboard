@@ -2,54 +2,46 @@ package main
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
-func TestStoreGettingOrderKeyByValue(t *testing.T) {
-	sut := NewStore[int64, string]()
-
-	insert := func(key string, val int, log bool) {
-		/*sut, _ =*/ sut.Insert(BTreeLeaf[int64, string]{OrderKey: int64(val), Value: key})
-
-		data := make([]BTreeLeaf[int64, string], 0, 100)
-		visiter := func(v BTreeLeaf[int64, string]) {
-			data = append(data, v)
-		}
-
-		if log {
-			sut.DepthFirstTraverse(visiter)
-			t.Logf("insert %v: %v", val, data)
-			//t.Logf("insert %v: %v", val, sut.String())
-		}
+func buildStoreWithData(data ...int) *Store[int, int] {
+	r := NewStore[int, int]()
+	for _, v := range data {
+		r .Insert(bl(v))
 	}
 
-	insert("10", 10, false)
-	insert("2", 2, false)
-	insert("5", 5, false)
-	insert("3", 3, false)
-	insert("1", 1, false)
-	t.Log(sut.String())
+	return r
+}
 
-	insert("20", 20, true)
-	insert("21", 21, true)
-	insert("18", 18, true)
-	insert("19", 19, true)
-	insert("17", 17, true)
-	insert("6", 6, true)
-	insert("7", 7, true)
-	insert("8", 8, true)
-	insert("9", 9, true)
-	insert("4", 4, true)
-	insert("11", 11, true)
-	insert("12", 12, true)
-	insert("13", 13, true)
-	insert("14", 14, true)
-	insert("15", 15, true)
-	insert("16", 16, true)
+func TestStoreGettingElementByValue(t *testing.T) {
+	sut := buildStoreWithData(randomIntData...)
 
-	t.Log("---------------------------")
+	v := sut.Get(11)
+	assert.Equal(t, v.Value().Value, 11, "")
+}
 
-	v := sut.Get("11")
-	t.Logf("Get 11 %v", v)
+func TestStoreGettingElementWithLeaderTabel(t *testing.T) {
+	sut := buildStoreWithData(randomIntData...)
 
-	t.Fail()
+	itr := sut.Get(11)
+
+	tableSize := 7
+	leaderTable := make([]int, 0, tableSize)
+	
+	leftIdx := tableSize / 2
+	backItr := itr
+	for ; leftIdx > 0 && backItr != nil; leftIdx -= 1 {
+		backItr.Prev()
+	}
+
+
+	for i := 0; i < tableSize - leftIdx && itr != nil; i+=1 {
+		leaderTable = append(leaderTable, itr.Value().Value)
+		itr.Next()
+	}
+
+	assert.Equal(t, leaderTable, 11, "")
+
 }
