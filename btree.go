@@ -17,6 +17,7 @@ type BTreeLeaf[K constraints.Ordered, V comparable] struct {
 
 type Node[K constraints.Ordered, V comparable] struct {
 	Parent *Node[K, V]
+	Pidx   int
 	Size   uint16
 	Data   []BTreeLeaf[K, V]
 	Childs []*Node[K, V]
@@ -50,8 +51,15 @@ func (n *Node[K, V]) insertAt(idx uint16, newValue BTreeLeaf[K, V]) {
 	n.Data[idx] = newValue
 
 	if n.Childs[idx+1] != nil {
+		for i := int(idx) + 1; i < len(n.Childs); i += 1 {
+			if n.Childs[i] != nil {
+				n.Childs[i].Pidx += 1
+			}
+		}
+
 		copy(n.Childs[idx+2:], n.Childs[idx+1:])
 		n.Childs[idx+1] = nil
+
 	}
 }
 
@@ -73,7 +81,7 @@ func (n *Node[K, V]) Split() *Node[K, V] {
 			upperNode = upperNode.Split()
 		}
 
-		leftNode.Parent = upperNode
+		// leftNode.Parent = upperNode
 	}
 
 	rightNode := NewNode(n.Size, upperNode, n.OnSplit)
@@ -81,6 +89,8 @@ func (n *Node[K, V]) Split() *Node[K, V] {
 	pivotValue := leftNode.Data[n.Size/2]
 
 	idx := upperNode.FindIdxToInsert(pivotValue)
+	leftNode.Pidx = int(idx)
+	rightNode.Pidx = int(idx) + 1
 	upperNode.insertAt(idx, pivotValue)
 	upperNode.Childs[idx+1] = rightNode
 
@@ -96,6 +106,7 @@ func (n *Node[K, V]) Split() *Node[K, V] {
 		if leftNode.Childs[j] != nil {
 			rightNode.Childs[i] = leftNode.Childs[j]
 			rightNode.Childs[i].Parent = rightNode
+			rightNode.Childs[i].Pidx = int(i)
 			leftNode.Childs[j] = nil
 		}
 	}

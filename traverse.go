@@ -14,6 +14,14 @@ func Allocate[K constraints.Ordered, V comparable](tree *Node[K, V], dst []BTree
 	return dst
 }
 
+type AllocateVV[K constraints.Ordered, V comparable] struct {
+	Data []V
+}
+
+func (a *AllocateVV[K, V]) visit(v BTreeLeaf[K, V]) {
+	a.Data = append(a.Data, v.Value)
+}
+
 func AllocateV[K constraints.Ordered, V comparable](tree *Node[K, V], dst []V) []V {
 	visiter := func(v BTreeLeaf[K, V]) {
 		dst = append(dst, v.Value)
