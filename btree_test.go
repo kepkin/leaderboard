@@ -1,7 +1,6 @@
-package main
+package leaderboard
 
 import (
-	// "fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -14,9 +13,9 @@ func TestSplit(t *testing.T) {
 		p := buildNodeWithData(5, 1, 2, 3, 4, 5)
 		p, _ = p.Insert(bl(0))
 
-		assert.Equal(t, p.Data, []BTreeLeaf[int, int]{bl(3)}, "")
-		assert.Equal(t, p.Childs[0].Data, []BTreeLeaf[int, int]{bl(0), bl(1), bl(2)}, "")
-		assert.Equal(t, p.Childs[1].Data, []BTreeLeaf[int, int]{bl(4), bl(5)}, "")
+		assert.Equal(t, p.Data, []BTreeLeaf[Int, Int]{bl(3)}, "")
+		assert.Equal(t, p.Childs[0].Data, []BTreeLeaf[Int, Int]{bl(0), bl(1), bl(2)}, "")
+		assert.Equal(t, p.Childs[1].Data, []BTreeLeaf[Int, Int]{bl(4), bl(5)}, "")
 	}
 
 	// right corner case
@@ -24,9 +23,9 @@ func TestSplit(t *testing.T) {
 		p := buildNodeWithData(5, 1, 2, 3, 4, 5)
 		p, _ = p.Insert(bl(6))
 
-		assert.Equal(t, p.Data, []BTreeLeaf[int, int]{bl(3)}, "")
-		assert.Equal(t, p.Childs[0].Data, []BTreeLeaf[int, int]{bl(1), bl(2)}, "")
-		assert.Equal(t, p.Childs[1].Data, []BTreeLeaf[int, int]{bl(4), bl(5), bl(6)}, "")
+		assert.Equal(t, p.Data, []BTreeLeaf[Int, Int]{bl(3)}, "")
+		assert.Equal(t, p.Childs[0].Data, []BTreeLeaf[Int, Int]{bl(1), bl(2)}, "")
+		assert.Equal(t, p.Childs[1].Data, []BTreeLeaf[Int, Int]{bl(4), bl(5), bl(6)}, "")
 	}
 
 	// middle corner case
@@ -34,9 +33,9 @@ func TestSplit(t *testing.T) {
 		p := buildNodeWithData(5, 1, 2, 4, 5, 6)
 		p, _ = p.Insert(bl(3))
 
-		assert.Equal(t, p.Data, []BTreeLeaf[int, int]{bl(4)}, "")
-		assert.Equal(t, p.Childs[0].Data, []BTreeLeaf[int, int]{bl(1), bl(2), bl(3)}, "")
-		assert.Equal(t, p.Childs[1].Data, []BTreeLeaf[int, int]{bl(5), bl(6)}, "")
+		assert.Equal(t, p.Data, []BTreeLeaf[Int, Int]{bl(4)}, "")
+		assert.Equal(t, p.Childs[0].Data, []BTreeLeaf[Int, Int]{bl(1), bl(2), bl(3)}, "")
+		assert.Equal(t, p.Childs[1].Data, []BTreeLeaf[Int, Int]{bl(5), bl(6)}, "")
 	}
 
 	// case with preserving childs
@@ -74,13 +73,13 @@ func TestSplit(t *testing.T) {
 func TestInsertKeepsOrder(t *testing.T) {
 	sut := buildBtreeWith(t, randomIntData)
 
-	res := make([]int, 0, len(randomIntData))
+	res := make([]Int, 0, len(randomIntData))
 	res = AllocateV(sut, res)
 
 	assert.Equal(t, len(randomIntData), len(res), "Some elements were lost")
 	for i, v := range res {
-		assert.Equal(t, i+1, v, "Elements not in order")
-		if i+1 != v {
+		assert.Equal(t, i+1, int(v), "Elements not in order")
+		if i+1 != int(v) {
 			break
 		}
 	}

@@ -1,4 +1,4 @@
-package main
+package leaderboard
 
 import (
 	"testing"
@@ -6,8 +6,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func buildStoreWithData(data ...int) *Store[int, int] {
-	r := NewStore[int, int]()
+func buildStoreWithData(data ...int) *Store[Int, Int] {
+	r := NewStore[Int, Int]()
 	for _, v := range data {
 		r .Insert(bl(v))
 	}
@@ -19,7 +19,7 @@ func TestStoreGettingElementByValue(t *testing.T) {
 	sut := buildStoreWithData(randomIntData...)
 
 	v := sut.Get(11)
-	assert.Equal(t, v.Value().Value, 11, "")
+	assert.Equal(t, Int(11), v.Value().Value, "")
 }
 
 func TestStoreGettingElementWithLeaderTabel(t *testing.T) {
@@ -28,7 +28,7 @@ func TestStoreGettingElementWithLeaderTabel(t *testing.T) {
 	itr := sut.Get(11)
 
 	tableSize := 7
-	leaderTable := make([]int, 0, tableSize)
+	leaderTable := make([]Int, 0, tableSize)
 	
 	leftIdx := tableSize / 2
 	backItr := itr
@@ -42,6 +42,6 @@ func TestStoreGettingElementWithLeaderTabel(t *testing.T) {
 		itr.Next()
 	}
 
-	assert.Equal(t, leaderTable, 11, "")
+	assert.Equal(t, []Int{8, 9, 10, 11, 12, 13, 14}, leaderTable, "")
 
 }

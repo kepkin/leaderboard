@@ -1,7 +1,7 @@
-package main
+package leaderboard
 
 import (
-	"golang.org/x/exp/constraints"
+	// "golang.org/x/exp/constraints"
 )
 
 func (n *Node[K, V]) Begin() *Iter[K, V] {
@@ -12,7 +12,7 @@ func (n *Node[K, V]) Begin() *Iter[K, V] {
 	return &Iter[K, V]{n, 0}
 }
 
-type Iter[K constraints.Ordered, V comparable] struct {
+type Iter[K Ordered, V Comparable] struct {
 	n *Node[K, V]
 	i int
 }
@@ -23,6 +23,11 @@ func (it *Iter[K, V]) Value() BTreeLeaf[K, V] {
 
 func (it *Iter[K, V]) I() int {
 	return it.i
+}
+
+func (it *Iter[K, V]) Equals(other Comparable) bool {
+	otherItr := other.(*Iter[K,V])
+	return it.n == otherItr.n && it.i == otherItr.i
 }
 
 func (it *Iter[K, V]) Prev() *Iter[K, V] {

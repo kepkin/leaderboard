@@ -1,15 +1,15 @@
-package main
+package leaderboard
 
 import (
-	"golang.org/x/exp/constraints"
+	// "golang.org/x/exp/constraints"
 )
 
-type Store[K constraints.Ordered, V constraints.Ordered] struct {
+type Store[K Ordered, V Ordered] struct {
 	btree   *Node[K, V]
 	pkbtree *Node[V, *Iter[K, V]]
 }
 
-func NewStore[K constraints.Ordered, V constraints.Ordered]() *Store[K, V] {
+func NewStore[K Ordered, V Ordered]() *Store[K, V] {
 	res := Store[K, V]{}
 
 	res.btree = NewNode[K, V](5, nil, res.onSplit)

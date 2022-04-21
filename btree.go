@@ -1,21 +1,32 @@
-package main
+package leaderboard
 
 import (
 	"fmt"
 
-	"golang.org/x/exp/constraints"
+	// "golang.org/x/exp/constraints"
 )
 
-type OnSplitTrigger[K constraints.Ordered, V comparable] func(BTreeLeaf[K, V], *Iter[K, V])
 
-func DummyOnSplit[K constraints.Ordered, V comparable](BTreeLeaf[K, V], *Iter[K, V]) {}
+type Comparable interface {
+	Equals(other Comparable) bool
+}
 
-type BTreeLeaf[K constraints.Ordered, V comparable] struct {
+type Ordered interface {
+	Comparable
+	Less(than Ordered) bool
+}
+
+
+type OnSplitTrigger[K Ordered, V Comparable] func(BTreeLeaf[K, V], *Iter[K, V])
+
+func DummyOnSplit[K Ordered, V Comparable](BTreeLeaf[K, V], *Iter[K, V]) {}
+
+type BTreeLeaf[K Ordered, V Comparable] struct {
 	OrderKey K
 	Value    V
 }
 
-type Node[K constraints.Ordered, V comparable] struct {
+type Node[K Ordered, V Comparable] struct {
 	Parent *Node[K, V]
 	Pidx   int
 	Size   uint16
@@ -25,7 +36,7 @@ type Node[K constraints.Ordered, V comparable] struct {
 	OnSplit OnSplitTrigger[K, V]
 }
 
-func NewNode[K constraints.Ordered, V comparable](size uint16, parent *Node[K, V], onSplit OnSplitTrigger[K, V]) *Node[K, V] {
+func NewNode[K Ordered, V Comparable](size uint16, parent *Node[K, V], onSplit OnSplitTrigger[K, V]) *Node[K, V] {
 
 	if onSplit == nil {
 		onSplit = DummyOnSplit[K, V]
@@ -155,7 +166,7 @@ func (n *Node[K, V]) Upsert(newValue BTreeLeaf[K, V]) (*Node[K, V], *Iter[K, V])
 
 func (n *Node[K, V]) LocalFindByValue(value V) (BTreeLeaf[K, V], bool) {
 	for _, v := range n.Data {
-		if v.Value == value {
+		if v.Value.Equals(value) {
 			return v, true
 		}
 	}
@@ -165,11 +176,11 @@ func (n *Node[K, V]) LocalFindByValue(value V) (BTreeLeaf[K, V], bool) {
 
 func (n *Node[K, V]) Find(value BTreeLeaf[K, V]) (*Iter[K, V]) {
 	for i, v := range n.Data {
-		if v.OrderKey < value.OrderKey {
+		if v.OrderKey.Less(value.OrderKey) {
 			continue
 		}
 
-		if value.OrderKey == v.OrderKey {
+		if value.OrderKey.Equals(v.OrderKey) {
 			return &Iter[K,V]{n, i}
 		} else { // Means we need to search left node
 			if n.Childs[i] == nil {
@@ -214,7 +225,7 @@ func (n Node[K, V]) FindIdxToInsert(newValue BTreeLeaf[K, V]) uint16 {
 	idx := uint16(len(n.Data))
 
 	for i, v := range n.Data {
-		if newValue.OrderKey < v.OrderKey {
+		if newValue.OrderKey.Less(v.OrderKey) {
 			return uint16(i)
 		}
 	}

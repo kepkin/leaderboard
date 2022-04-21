@@ -1,0 +1,66 @@
+openapi: 3.0.3
+info:
+  title: "Leader board service"
+  version: v1
+
+paths:
+  /results/:userId:
+    post:
+      operationId: PostResults
+      summary: Add new result for user
+
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Points'
+
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPointsArr'
+
+  /leaderBoard:
+    get: 
+      operationId: GetLeaderBoard
+      summary: Get leader board
+      responses:
+        '200':
+          description: OK
+          
+          
+components:
+  schemas:
+
+    UserPoints:
+      type: object
+      properties:
+        userId:
+          type: string
+          
+        points:
+          $ref: '#/components/schemas/Points'
+          
+    UserPointsArr:
+      type: array
+      items:
+        $ref: '#/components/schemas/UserPoints'
+        
+        
+    Points:
+      type: number
+      format: decimal
+        
+        
+    

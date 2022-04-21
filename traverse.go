@@ -1,11 +1,11 @@
-package main
+package leaderboard
 
 import (
 	"fmt"
-	"golang.org/x/exp/constraints"
+	// "golang.org/x/exp/constraints"
 )
 
-func Allocate[K constraints.Ordered, V comparable](tree *Node[K, V], dst []BTreeLeaf[K, V]) []BTreeLeaf[K, V] {
+func Allocate[K Ordered, V Comparable](tree *Node[K, V], dst []BTreeLeaf[K, V]) []BTreeLeaf[K, V] {
 	visiter := func(v BTreeLeaf[K, V]) {
 		dst = append(dst, v)
 	}
@@ -14,7 +14,7 @@ func Allocate[K constraints.Ordered, V comparable](tree *Node[K, V], dst []BTree
 	return dst
 }
 
-type AllocateVV[K constraints.Ordered, V comparable] struct {
+type AllocateVV[K Ordered, V Comparable] struct {
 	Data []V
 }
 
@@ -22,7 +22,7 @@ func (a *AllocateVV[K, V]) visit(v BTreeLeaf[K, V]) {
 	a.Data = append(a.Data, v.Value)
 }
 
-func AllocateV[K constraints.Ordered, V comparable](tree *Node[K, V], dst []V) []V {
+func AllocateV[K Ordered, V Comparable](tree *Node[K, V], dst []V) []V {
 	visiter := func(v BTreeLeaf[K, V]) {
 		dst = append(dst, v.Value)
 	}
@@ -30,7 +30,7 @@ func AllocateV[K constraints.Ordered, V comparable](tree *Node[K, V], dst []V) [
 	return dst
 }
 
-func PrintTree[K constraints.Ordered, V comparable](tree *Node[K, V]) {
+func PrintTree[K Ordered, V Comparable](tree *Node[K, V]) {
 	data := make([]K, 0, 100)
 	visiter := func(v BTreeLeaf[K, V]) {
 		data = append(data, v.OrderKey)
