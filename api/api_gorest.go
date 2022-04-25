@@ -57,7 +57,7 @@ func NewFieldError(in ParamPlace, f string, msg string, err error) FieldError {
 
 func booleanConverter(input []string) (bool, error) {
 	if len(input) == 0 {
-		return false, fmt.Errorf("got empty value instead of boolean", input)
+		return false, fmt.Errorf("got empty value instead of boolean")
 	}
 
 	if len(input) > 1 {

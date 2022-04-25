@@ -1,5 +1,6 @@
 phantom:
-  address: app:8080 # [Target's address]:[target's port]
+  address: 192.168.215.19:8080
+  #address: app:8080 # [Target's address]:[target's port]
   writelog: proto_warning
 
   ammo_type: uripost

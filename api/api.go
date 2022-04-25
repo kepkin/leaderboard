@@ -71,24 +71,32 @@ func (p LeaderBoardServiceImpl) GetLeaderBoard(in GetLeaderBoardRequest, c *gin.
 
 
 func GetAdjacentLeaders[K leaderboard.Ordered, V leaderboard.Comparable](itr *leaderboard.Iter[K,V], visiter func(leaderboard.BTreeLeaf[K, V]), before int, after int) {
-	backItr := itr
-	for ; before > 0 && backItr != nil; before -= 1 {
-		backItr = backItr.Prev()
+	for ; before > 0 && itr.Valid(); before -= 1 {
+		itr.Prev()
 	}
 
-	for i := 0; i < after && itr != nil; i+=1 {
-		visiter(itr.Value())
-		itr = itr.Next()
+	if !itr.Valid() {
+		itr.Next()
 	}
+
+	for i := 0; i < after + before + 1 && itr.Valid(); i+=1 {
+		visiter(itr.Value())
+		itr.Next()
+	}
+
 }
 
 func (p LeaderBoardServiceImpl) PostResults(in PostResultsRequest, c *gin.Context) {
 	itr, err := p.store.Insert(leaderboard.BTreeLeaf[Decimal, UserID]{Decimal(in.Body.JSON), UserID(in.Path.UserID)})
+	if itr != nil {
+		defer itr.Close()
+	}
+
 	if err != nil {
 		c.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
-
+	
 	data := make(UserPointsArr, 0, 21)
 	GetAdjacentLeaders(itr, func(v leaderboard.BTreeLeaf[Decimal, UserID]) {
 		data = append(data, UserPoints{Points: Points(v.OrderKey), UserID: string(v.Value)})

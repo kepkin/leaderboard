@@ -6,12 +6,14 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const treeSize = 5
+
 func TestSplit(t *testing.T) {
 
 	// left corner case
 	{
-		p := buildNodeWithData(5, 1, 2, 3, 4, 5)
-		p, _ = p.Insert(bl(0))
+		p := buildNodeWithData(treeSize, 1, 2, 3, 4, 5)
+		p, _, _ = p.Insert(bl(0), true)
 
 		assert.Equal(t, p.Data, []BTreeLeaf[Int, Int]{bl(3)}, "")
 		assert.Equal(t, p.Childs[0].Data, []BTreeLeaf[Int, Int]{bl(0), bl(1), bl(2)}, "")
@@ -20,8 +22,8 @@ func TestSplit(t *testing.T) {
 
 	// right corner case
 	{
-		p := buildNodeWithData(5, 1, 2, 3, 4, 5)
-		p, _ = p.Insert(bl(6))
+		p := buildNodeWithData(treeSize, 1, 2, 3, 4, 5)
+		p, _, _ = p.Insert(bl(6), true)
 
 		assert.Equal(t, p.Data, []BTreeLeaf[Int, Int]{bl(3)}, "")
 		assert.Equal(t, p.Childs[0].Data, []BTreeLeaf[Int, Int]{bl(1), bl(2)}, "")
@@ -30,8 +32,8 @@ func TestSplit(t *testing.T) {
 
 	// middle corner case
 	{
-		p := buildNodeWithData(5, 1, 2, 4, 5, 6)
-		p, _ = p.Insert(bl(3))
+		p := buildNodeWithData(treeSize, 1, 2, 4, 5, 6)
+		p, _, _ = p.Insert(bl(3), true)
 
 		assert.Equal(t, p.Data, []BTreeLeaf[Int, Int]{bl(4)}, "")
 		assert.Equal(t, p.Childs[0].Data, []BTreeLeaf[Int, Int]{bl(1), bl(2), bl(3)}, "")
@@ -71,7 +73,7 @@ func TestSplit(t *testing.T) {
 }
 
 func TestInsertKeepsOrder(t *testing.T) {
-	sut := buildBtreeWith(t, randomIntData)
+	sut := buildBtreeWith(t, 9, randomIntData)
 
 	res := make([]Int, 0, len(randomIntData))
 	res = AllocateV(sut, res)

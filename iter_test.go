@@ -7,7 +7,7 @@ import (
 )
 
 func TestBtreeIter(t *testing.T) {
-	tree := buildBtreeWith(t, randomIntData)
+	tree := buildBtreeWith(t, 5, randomIntData)
 
 	sut := tree.Find(bl(11))
 	if sut == nil {
@@ -16,7 +16,7 @@ func TestBtreeIter(t *testing.T) {
 
 	data := make([]Int, 0)
 	c := 10
-	for it := sut; it != nil && c > 0; it = it.Next() {
+	for it := sut; it.Valid() && c > 0; it = it.Next() {
 		c -= 1
 		data = append(data, it.Value().Value)
 	}
@@ -25,7 +25,7 @@ func TestBtreeIter(t *testing.T) {
 
 	sut2 := tree.Find(bl(11))
 	data = data[:0]
-	for it := sut2; it != nil; it = it.Prev() {
+	for it := sut2; it.Valid(); it = it.Prev() {
 		data = append(data, it.Value().Value)
 	}
 

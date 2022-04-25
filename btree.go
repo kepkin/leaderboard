@@ -2,6 +2,7 @@ package leaderboard
 
 import (
 	"fmt"
+	"sync"
 
 	// "golang.org/x/exp/constraints"
 )
@@ -15,7 +16,6 @@ type Ordered interface {
 	Comparable
 	Less(than Ordered) bool
 }
-
 
 type OnSplitTrigger[K Ordered, V Comparable] func(BTreeLeaf[K, V], *Iter[K, V])
 
@@ -34,6 +34,10 @@ type Node[K Ordered, V Comparable] struct {
 	Childs []*Node[K, V]
 
 	OnSplit OnSplitTrigger[K, V]
+
+	mu sync.Mutex
+
+	treeRebalanceMu *sync.RWMutex
 }
 
 func NewNode[K Ordered, V Comparable](size uint16, parent *Node[K, V], onSplit OnSplitTrigger[K, V]) *Node[K, V] {
@@ -48,6 +52,18 @@ func NewNode[K Ordered, V Comparable](size uint16, parent *Node[K, V], onSplit O
 		Data:    make([]BTreeLeaf[K, V], 0, size),
 		Childs:  make([]*Node[K, V], size+1),
 		OnSplit: onSplit,
+		treeRebalanceMu: &sync.RWMutex{},
+	}
+}
+
+func newTreeNode[K Ordered, V Comparable](seed *Node[K,V], parent *Node[K,V]) *Node[K, V] {
+	return &Node[K, V]{
+		Parent: parent,
+		Size: seed.Size,
+		Data:    make([]BTreeLeaf[K, V], 0, seed.Size),
+		Childs:  make([]*Node[K, V], seed.Size+1),
+		OnSplit: seed.OnSplit,
+		treeRebalanceMu: seed.treeRebalanceMu,
 	}
 }
 
@@ -57,6 +73,9 @@ func NewNode[K Ordered, V Comparable](size uint16, parent *Node[K, V], onSplit O
 //  - Childs[:last:] == nil
 //  - len(Data) < Size
 func (n *Node[K, V]) insertAt(idx uint16, newValue BTreeLeaf[K, V]) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+
 	n.Data = append(n.Data, BTreeLeaf[K, V]{})
 	copy(n.Data[idx+1:], n.Data[idx:])
 	n.Data[idx] = newValue
@@ -70,19 +89,17 @@ func (n *Node[K, V]) insertAt(idx uint16, newValue BTreeLeaf[K, V]) {
 
 		copy(n.Childs[idx+2:], n.Childs[idx+1:])
 		n.Childs[idx+1] = nil
-
 	}
 }
 
 func (n *Node[K, V]) Split() *Node[K, V] {
-
 	upperNode := n.Parent
 	returnNode := n
 	leftNode := n
 
 	if upperNode == nil {
 
-		upperNode = NewNode(n.Size, nil, n.OnSplit)
+		upperNode = newTreeNode[K,V](n, nil)
 		leftNode.Parent = upperNode
 		returnNode = upperNode
 
@@ -95,7 +112,7 @@ func (n *Node[K, V]) Split() *Node[K, V] {
 		// leftNode.Parent = upperNode
 	}
 
-	rightNode := NewNode(n.Size, upperNode, n.OnSplit)
+	rightNode := newTreeNode[K,V](n, upperNode)
 
 	pivotValue := leftNode.Data[n.Size/2]
 
@@ -105,12 +122,13 @@ func (n *Node[K, V]) Split() *Node[K, V] {
 	upperNode.insertAt(idx, pivotValue)
 	upperNode.Childs[idx+1] = rightNode
 
-	n.OnSplit(pivotValue, &Iter[K,V]{upperNode, int(idx)})
+	//TODO: return onSplit
+	//n.OnSplit(pivotValue, newIter[K,V](upperNode, int(idx)))
 
 	rightNode.Data = append(rightNode.Data, leftNode.Data[n.Size/2+1:]...)
-	for i, v := range rightNode.Data {
-		n.OnSplit(v, &Iter[K,V]{rightNode, i})
-	}
+	// for i, v := range rightNode.Data {
+	// 	//n.OnSplit(v, newIter[K,V](rightNode, i))
+	// }
 
 	for i := uint16(0); i < n.Size/2+1; i += 1 {
 		j := n.Size/2 + 1 + i
@@ -123,34 +141,69 @@ func (n *Node[K, V]) Split() *Node[K, V] {
 	}
 
 	leftNode.Data = leftNode.Data[:n.Size/2]
-	for i, v := range leftNode.Data {
-		n.OnSplit(v, &Iter[K,V]{leftNode, i})
-	}
+	// for i, v := range leftNode.Data {
+	// 	// n.OnSplit(v, newIter[K,V](leftNode, i))
+	// }
 
 	return returnNode
 }
 
-func (n *Node[K, V]) Insert(newValue BTreeLeaf[K, V]) (*Node[K, V], *Iter[K, V]) {
+func (n *Node[K, V]) Insert(newValue BTreeLeaf[K, V], rebalance bool) (*Node[K, V], *Iter[K, V], bool) {
+	var needRebalance bool = false
+	var iter *Iter[K,V] = nil
+
+	if rebalance {
+		needRebalance = true
+		n.treeRebalanceMu.Lock()
+		
+		needRebalance = true
+		for needRebalance {
+			n, iter, needRebalance = n.InsertLocked(newValue, rebalance)
+		}
+
+		n.treeRebalanceMu.Unlock()
+	}
+
+	n, iter, needRebalance = n.InsertLocked(newValue, false)
+
+	return n, iter, needRebalance
+}
+
+
+// bool - returns if rebalancing is needed
+func (n *Node[K, V]) InsertLocked(newValue BTreeLeaf[K, V], rebalance bool) (*Node[K, V], *Iter[K, V], bool) {
 	lookupNode := n
+	var needRebalance bool = false
 	var iter *Iter[K,V] = nil
 
 	if uint16(len(n.Data)) == n.Size {
+		if !rebalance {
+			return lookupNode, nil, true
+		}
+
 		n = n.Split()
+
 		lookupNode = n
 		if n.Parent != nil {
 			lookupNode = n.Parent
 		}
+
+		return n, nil, false
 	}
 
 	idx := lookupNode.FindIdxToInsert(newValue)
 	if lookupNode.Childs[idx] != nil {
-		lookupNode.Childs[idx], iter = lookupNode.Childs[idx].Insert(newValue)
+		lookupNode.Childs[idx], iter, needRebalance = lookupNode.Childs[idx].InsertLocked(newValue, rebalance)
 	} else {
+		if rebalance {
+			return n, iter, false
+		}
+
 		lookupNode.insertAt(idx, newValue)
-		iter = &Iter[K,V]{lookupNode, int(idx)}
+		iter = newIter[K,V](lookupNode, int(idx))
 	}
 
-	return n, iter
+	return n, iter, needRebalance
 }
 
 func (n *Node[K, V]) Upsert(newValue BTreeLeaf[K, V]) (*Node[K, V], *Iter[K, V]) {
@@ -161,7 +214,8 @@ func (n *Node[K, V]) Upsert(newValue BTreeLeaf[K, V]) (*Node[K, V], *Iter[K, V])
 		return n, itr
 	}
 
-	return n.Insert(newValue)
+	rn, itr, _ := n.Insert(newValue, false)
+	return rn, itr
 }
 
 func (n *Node[K, V]) LocalFindByValue(value V) (BTreeLeaf[K, V], bool) {
@@ -181,7 +235,7 @@ func (n *Node[K, V]) Find(value BTreeLeaf[K, V]) (*Iter[K, V]) {
 		}
 
 		if value.OrderKey.Equals(v.OrderKey) {
-			return &Iter[K,V]{n, i}
+			return newIter[K,V](n, i)
 		} else { // Means we need to search left node
 			if n.Childs[i] == nil {
 				return nil
