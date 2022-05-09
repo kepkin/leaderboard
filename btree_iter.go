@@ -2,7 +2,6 @@ package leaderboard
 
 import (
 	"sync"
-	// "golang.org/x/exp/constraints"
 )
 
 func (n *Node[K, V]) Begin() *Iter[K, V] {
@@ -13,9 +12,10 @@ func (n *Node[K, V]) Begin() *Iter[K, V] {
 	return newIter[K, V](n, 0)
 }
 
-func newIter[K Ordered, V Comparable](n *Node[K,V], idx int) *Iter[K, V] {
-	n.treeRebalanceMu.RLock()
-	return &Iter[K, V]{n, idx, IterStateValid, n.treeRebalanceMu}
+func newIter[K any, V any](n *Node[K, V], idx int) *Iter[K, V] {
+	//TODO
+	//n.treeRebalanceMu.RLock()
+	return &Iter[K, V]{n, idx, IterStateValid, &n.s.treeRebalanceMu}
 }
 
 type iterState int
@@ -26,12 +26,11 @@ const (
 	IterStateStart
 )
 
-type Iter[K Ordered, V Comparable] struct {
+type Iter[K any, V any] struct {
 	n *Node[K, V]
 	i int
 
 	state iterState
-
 
 	treeRebalanceMu *sync.RWMutex
 }
@@ -49,12 +48,12 @@ func (it *Iter[K, V]) Valid() bool {
 }
 
 func (it *Iter[K, V]) Close() {
-	it.treeRebalanceMu.RUnlock()
+	//TODO
+	//it.treeRebalanceMu.RUnlock()
 }
 
-func (it *Iter[K, V]) Equals(other Comparable) bool {
-	otherItr := other.(*Iter[K,V])
-	return it.n == otherItr.n && it.i == otherItr.i
+func IterEquals[K any, V any](a, b Iter[K, V]) bool {
+	return a.n == b.n && a.i == b.i
 }
 
 func (it *Iter[K, V]) Prev() *Iter[K, V] {
@@ -104,7 +103,6 @@ func (it *Iter[K, V]) Next() *Iter[K, V] {
 		return it
 	}
 
-
 	if it.I() < len(it.n.Data)-1 {
 		it.i += 1
 		for it.n.Childs[it.I()] != nil {
@@ -122,9 +120,15 @@ func (it *Iter[K, V]) Next() *Iter[K, V] {
 	}
 
 	for it.n.Parent != nil && it.I() == len(it.n.Data)-1 {
-		if it.n.Pidx == len(it.n.Parent.Data) {
-			it.state = IterStateEnd
-			return it
+		for it.n.Pidx == len(it.n.Parent.Data) {
+			it.i = it.n.Pidx
+			it.n = it.n.Parent
+
+			if it.n.Parent == nil && it.i == len(it.n.Data) {
+				it.state = IterStateEnd
+				return it
+			}
+
 		}
 		it.i = it.n.Pidx
 		it.n = it.n.Parent

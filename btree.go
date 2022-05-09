@@ -4,66 +4,83 @@ import (
 	"fmt"
 	"sync"
 
-	// "golang.org/x/exp/constraints"
+	"golang.org/x/exp/constraints"
 )
 
-
-type Comparable interface {
-	Equals(other Comparable) bool
+func StdLess[K constraints.Ordered](a, b K) bool {
+	return a < b
 }
 
-type Ordered interface {
-	Comparable
-	Less(than Ordered) bool
+func StdEquals[K constraints.Ordered](a, b K) bool {
+	return a == b
 }
 
-type OnSplitTrigger[K Ordered, V Comparable] func(BTreeLeaf[K, V], *Iter[K, V])
+type OnSplitTrigger[K any, V any] func(BTreeLeaf[K, V], *Node[K, V], int)
+type LessFuncType[K any] func(a, b K) bool
+type EqualsFuncType[K any] func(a, b K) bool
 
-func DummyOnSplit[K Ordered, V Comparable](BTreeLeaf[K, V], *Iter[K, V]) {}
+func DummyOnSplit[K any, V any](BTreeLeaf[K, V], *Node[K, V], int) {}
 
-type BTreeLeaf[K Ordered, V Comparable] struct {
+type BTreeLeaf[K any, V any] struct {
 	OrderKey K
 	Value    V
 }
 
-type Node[K Ordered, V Comparable] struct {
+type NodeSettings[K any, V any] struct {
+	Size          int
+	LessFunc      LessFuncType[K]
+	EqualsFuncKey EqualsFuncType[K]
+	EqualsFuncVal EqualsFuncType[V]
+
+	OnSplit         OnSplitTrigger[K, V]
+	treeRebalanceMu sync.RWMutex
+}
+
+type Node[K any, V any] struct {
 	Parent *Node[K, V]
 	Pidx   int
-	Size   uint16
 	Data   []BTreeLeaf[K, V]
 	Childs []*Node[K, V]
 
-	OnSplit OnSplitTrigger[K, V]
-
 	mu sync.Mutex
 
-	treeRebalanceMu *sync.RWMutex
+	s *NodeSettings[K, V]
 }
 
-func NewNode[K Ordered, V Comparable](size uint16, parent *Node[K, V], onSplit OnSplitTrigger[K, V]) *Node[K, V] {
+func NewNode[K any, V any](
+	size int,
+	lessFunc LessFuncType[K],
+	equalsFuncKey EqualsFuncType[K],
+	equalsFuncVal EqualsFuncType[V],
+	onSplit OnSplitTrigger[K, V],
+) *Node[K, V] {
 
 	if onSplit == nil {
 		onSplit = DummyOnSplit[K, V]
 	}
 
 	return &Node[K, V]{
-		Parent:  parent,
-		Size:    size,
-		Data:    make([]BTreeLeaf[K, V], 0, size),
-		Childs:  make([]*Node[K, V], size+1),
-		OnSplit: onSplit,
-		treeRebalanceMu: &sync.RWMutex{},
+		Parent: nil,
+		Data:   make([]BTreeLeaf[K, V], 0, size),
+		Childs: make([]*Node[K, V], size+1),
+
+		s: &NodeSettings[K, V]{
+			Size:            size,
+			OnSplit:         onSplit,
+			LessFunc:        lessFunc,
+			EqualsFuncKey:   equalsFuncKey,
+			EqualsFuncVal:   equalsFuncVal,
+			treeRebalanceMu: sync.RWMutex{},
+		},
 	}
 }
 
-func newTreeNode[K Ordered, V Comparable](seed *Node[K,V], parent *Node[K,V]) *Node[K, V] {
+func newTreeNode[K any, V any](seed *Node[K, V], parent *Node[K, V]) *Node[K, V] {
 	return &Node[K, V]{
 		Parent: parent,
-		Size: seed.Size,
-		Data:    make([]BTreeLeaf[K, V], 0, seed.Size),
-		Childs:  make([]*Node[K, V], seed.Size+1),
-		OnSplit: seed.OnSplit,
-		treeRebalanceMu: seed.treeRebalanceMu,
+		Data:   make([]BTreeLeaf[K, V], 0, seed.s.Size),
+		Childs: make([]*Node[K, V], seed.s.Size+1),
+		s:      seed.s,
 	}
 }
 
@@ -72,16 +89,19 @@ func newTreeNode[K Ordered, V Comparable](seed *Node[K,V], parent *Node[K,V]) *N
 //  - Childs[idx] == nil
 //  - Childs[:last:] == nil
 //  - len(Data) < Size
-func (n *Node[K, V]) insertAt(idx uint16, newValue BTreeLeaf[K, V]) {
+func (n *Node[K, V]) insertAt(idx int, newValue BTreeLeaf[K, V]) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 
 	n.Data = append(n.Data, BTreeLeaf[K, V]{})
 	copy(n.Data[idx+1:], n.Data[idx:])
 	n.Data[idx] = newValue
+	for i := idx; i < len(n.Data); i++ {
+		n.s.OnSplit(n.Data[i], n, i)
+	}
 
 	if n.Childs[idx+1] != nil {
-		for i := int(idx) + 1; i < len(n.Childs); i += 1 {
+		for i := idx + 1; i < len(n.Childs); i += 1 {
 			if n.Childs[i] != nil {
 				n.Childs[i].Pidx += 1
 			}
@@ -99,86 +119,80 @@ func (n *Node[K, V]) Split() *Node[K, V] {
 
 	if upperNode == nil {
 
-		upperNode = newTreeNode[K,V](n, nil)
+		upperNode = newTreeNode[K, V](n, nil)
 		leftNode.Parent = upperNode
 		returnNode = upperNode
 
 		upperNode.Childs[0] = leftNode
 	} else {
-		if uint16(len(upperNode.Data)) == n.Size {
+		if len(upperNode.Data) == n.s.Size {
 			upperNode = upperNode.Split()
 		}
 
 		// leftNode.Parent = upperNode
 	}
 
-	rightNode := newTreeNode[K,V](n, upperNode)
+	rightNode := newTreeNode[K, V](n, upperNode)
 
-	pivotValue := leftNode.Data[n.Size/2]
+	pivotValue := leftNode.Data[n.s.Size/2]
 
 	idx := upperNode.FindIdxToInsert(pivotValue)
-	leftNode.Pidx = int(idx)
-	rightNode.Pidx = int(idx) + 1
+	leftNode.Pidx = idx
+	rightNode.Pidx = idx + 1
 	upperNode.insertAt(idx, pivotValue)
 	upperNode.Childs[idx+1] = rightNode
 
-	//TODO: return onSplit
-	//n.OnSplit(pivotValue, newIter[K,V](upperNode, int(idx)))
+	rightNode.Data = append(rightNode.Data, leftNode.Data[n.s.Size/2+1:]...)
+	for i, v := range rightNode.Data {
+		n.s.OnSplit(v, rightNode, i)
+	}
 
-	rightNode.Data = append(rightNode.Data, leftNode.Data[n.Size/2+1:]...)
-	// for i, v := range rightNode.Data {
-	// 	//n.OnSplit(v, newIter[K,V](rightNode, i))
-	// }
-
-	for i := uint16(0); i < n.Size/2+1; i += 1 {
-		j := n.Size/2 + 1 + i
+	for i := 0; i < n.s.Size/2+1; i += 1 {
+		j := n.s.Size/2 + 1 + i
 		if leftNode.Childs[j] != nil {
 			rightNode.Childs[i] = leftNode.Childs[j]
 			rightNode.Childs[i].Parent = rightNode
-			rightNode.Childs[i].Pidx = int(i)
+			rightNode.Childs[i].Pidx = i
 			leftNode.Childs[j] = nil
 		}
 	}
 
-	leftNode.Data = leftNode.Data[:n.Size/2]
-	// for i, v := range leftNode.Data {
-	// 	// n.OnSplit(v, newIter[K,V](leftNode, i))
-	// }
+	leftNode.Data = leftNode.Data[:n.s.Size/2]
 
 	return returnNode
 }
 
-func (n *Node[K, V]) Insert(newValue BTreeLeaf[K, V], rebalance bool) (*Node[K, V], *Iter[K, V], bool) {
-	var needRebalance bool = false
-	var iter *Iter[K,V] = nil
+func (n *Node[K, V]) Insert(newValue BTreeLeaf[K, V]) (*Node[K, V], int) {
+	var needRebalance = false
+	var idx int
 
-	if rebalance {
-		needRebalance = true
-		n.treeRebalanceMu.Lock()
-		
-		needRebalance = true
-		for needRebalance {
-			n, iter, needRebalance = n.InsertLocked(newValue, rebalance)
-		}
+	n.s.treeRebalanceMu.RLock()
+	n, idx, needRebalance = n.InsertLocked(newValue, false)
+	n.s.treeRebalanceMu.RUnlock()
 
-		n.treeRebalanceMu.Unlock()
+	if !needRebalance {
+		return n, idx
 	}
 
-	n, iter, needRebalance = n.InsertLocked(newValue, false)
+	n.s.treeRebalanceMu.Lock()
+	defer n.s.treeRebalanceMu.Unlock()
 
-	return n, iter, needRebalance
+	for needRebalance {
+		n, idx, needRebalance = n.InsertLocked(newValue, true)
+		n, idx, needRebalance = n.InsertLocked(newValue, false)
+	}
+
+	return n, idx
 }
 
-
 // bool - returns if rebalancing is needed
-func (n *Node[K, V]) InsertLocked(newValue BTreeLeaf[K, V], rebalance bool) (*Node[K, V], *Iter[K, V], bool) {
+func (n *Node[K, V]) InsertLocked(newValue BTreeLeaf[K, V], rebalance bool) (*Node[K, V], int, bool) {
 	lookupNode := n
 	var needRebalance bool = false
-	var iter *Iter[K,V] = nil
 
-	if uint16(len(n.Data)) == n.Size {
+	if len(n.Data) == n.s.Size {
 		if !rebalance {
-			return lookupNode, nil, true
+			return lookupNode, -1, true
 		}
 
 		n = n.Split()
@@ -188,39 +202,36 @@ func (n *Node[K, V]) InsertLocked(newValue BTreeLeaf[K, V], rebalance bool) (*No
 			lookupNode = n.Parent
 		}
 
-		return n, nil, false
+		return n, -1, false
 	}
 
 	idx := lookupNode.FindIdxToInsert(newValue)
 	if lookupNode.Childs[idx] != nil {
-		lookupNode.Childs[idx], iter, needRebalance = lookupNode.Childs[idx].InsertLocked(newValue, rebalance)
+		lookupNode.Childs[idx], idx, needRebalance = lookupNode.Childs[idx].InsertLocked(newValue, rebalance)
 	} else {
 		if rebalance {
-			return n, iter, false
+			return n, -1, false
 		}
 
 		lookupNode.insertAt(idx, newValue)
-		iter = newIter[K,V](lookupNode, int(idx))
 	}
 
-	return n, iter, needRebalance
+	return n, idx, needRebalance
 }
 
-func (n *Node[K, V]) Upsert(newValue BTreeLeaf[K, V]) (*Node[K, V], *Iter[K, V]) {
-	itr := n.Find(newValue)
-	if itr != nil {
-		localNode := itr.n
-		localNode.Data[itr.i] = newValue
-		return n, itr
+func (n *Node[K, V]) Upsert(newValue BTreeLeaf[K, V]) (*Node[K, V], int) {
+	localNode, idx := n.Find(newValue)
+	if localNode != nil {
+		localNode.Data[idx] = newValue
+		return n, idx
 	}
 
-	rn, itr, _ := n.Insert(newValue, false)
-	return rn, itr
+	return n.Insert(newValue)
 }
 
 func (n *Node[K, V]) LocalFindByValue(value V) (BTreeLeaf[K, V], bool) {
 	for _, v := range n.Data {
-		if v.Value.Equals(value) {
+		if n.s.EqualsFuncVal(v.Value, value) {
 			return v, true
 		}
 	}
@@ -228,63 +239,95 @@ func (n *Node[K, V]) LocalFindByValue(value V) (BTreeLeaf[K, V], bool) {
 	return BTreeLeaf[K, V]{}, false
 }
 
-func (n *Node[K, V]) Find(value BTreeLeaf[K, V]) (*Iter[K, V]) {
+func (n *Node[K, V]) Find(value BTreeLeaf[K, V]) (*Node[K, V], int) {
 	for i, v := range n.Data {
-		if v.OrderKey.Less(value.OrderKey) {
+		if n.s.LessFunc(v.OrderKey, value.OrderKey) {
 			continue
 		}
 
-		if value.OrderKey.Equals(v.OrderKey) {
-			return newIter[K,V](n, i)
+		if n.s.EqualsFuncKey(value.OrderKey, v.OrderKey) {
+			return n, i
 		} else { // Means we need to search left node
 			if n.Childs[i] == nil {
-				return nil
+				return nil, -1
 			}
 
 			return n.Childs[i].Find(value)
 		}
 	}
 
-	if n.Childs[n.Size] == nil {
-		return nil
+	if n.Childs[len(n.Data)] == nil {
+		return nil, -1
 	}
 
-	return n.Childs[n.Size].Find(value)
+	return n.Childs[len(n.Data)].Find(value)
 }
 
 //TODO: write Remove
 
-func (n *Node[K, V]) RemoveByLocalIdx(idx uint16) bool {
-	if idx >= n.Size {
+func (n *Node[K, V]) removeChild(idx int) {
+	n.Childs[idx] = nil
+}
+
+func (n *Node[K, V]) RemoveByLocalIdx(idx int) bool {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+
+	if idx >= len(n.Data) {
 		return false
 	}
 
 	if n.Childs[idx+1] != nil {
-		//TODO: we are having childs with no Data
 		n.Data[idx] = n.Childs[idx+1].Data[0]
-		return n.Childs[idx+1].RemoveByLocalIdx(0)
+		res := n.Childs[idx+1].RemoveByLocalIdx(0)
+
+		n.s.OnSplit(n.Data[idx], n, idx)
+		return res
+	} else if n.Childs[idx] != nil {
+		chidx := len(n.Childs[idx].Data) - 1
+		n.Data[idx] = n.Childs[idx].Data[chidx]
+		res := n.Childs[idx].RemoveByLocalIdx(chidx)
+
+		n.s.OnSplit(n.Data[idx], n, idx)
+		return res
 	}
 
+	// rememberValue := n.Data[idx]
+	n.s.OnSplit(n.Data[idx], nil, idx)
 	copy(n.Data[idx:], n.Data[idx+1:])
 	n.Data = n.Data[:len(n.Data)-1]
 
-	// TODO: somehow we need to remove this Node after it has no Data
-	// if len(n.Data) == 0 {
-	// 	n.Parent
-	// }
-	return true
-}
+	for i := idx; i < len(n.Data); i++ {
+		n.s.OnSplit(n.Data[i], n, i)
+	}
 
-func (n Node[K, V]) FindIdxToInsert(newValue BTreeLeaf[K, V]) uint16 {
-	idx := uint16(len(n.Data))
-
-	for i, v := range n.Data {
-		if newValue.OrderKey.Less(v.OrderKey) {
-			return uint16(i)
+	for i := idx + 1; i < len(n.Childs); i += 1 {
+		if n.Childs[i] != nil {
+			n.Childs[i].Pidx -= 1
 		}
 	}
 
-	return idx
+	copy(n.Childs[idx+1:], n.Childs[idx+2:])
+	n.Childs[len(n.Data)+1] = nil
+
+	if len(n.Data) == 0 {
+		// fmt.Printf("removed last child %v\n", rememberValue)
+		n.Data = nil
+		n.Childs = nil
+		n.Parent.removeChild(n.Pidx)
+		n.Parent = nil
+	}
+	return true
+}
+
+func (n Node[K, V]) FindIdxToInsert(newValue BTreeLeaf[K, V]) int {
+	for i, v := range n.Data {
+		if n.s.LessFunc(newValue.OrderKey, v.OrderKey) {
+			return i
+		}
+	}
+
+	return len(n.Data)
 }
 
 func (n *Node[K, V]) stringHelper() string {
@@ -337,4 +380,12 @@ func (n *Node[K, V]) String() string {
 	res += "\n"
 	res += n.stringLoopHelper()
 	return res
+}
+
+func (n *Node[K, V]) Iter(idx int) *Iter[K, V] {
+	return newIter[K, V](n, idx)
+}
+
+func (n *Node[K, V]) At(idx int) BTreeLeaf[K, V] {
+	return n.Data[idx]
 }

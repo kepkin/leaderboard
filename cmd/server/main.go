@@ -2,11 +2,11 @@ package main
 
 import (
 	"fmt"
-	
+
 	"github.com/alexflint/go-arg"
 	"github.com/gin-gonic/gin"
 
-	"gihtub.com/kepkin/leaderboard"
+	lb "gihtub.com/kepkin/leaderboard"
 	"gihtub.com/kepkin/leaderboard/api"
 )
 
@@ -16,8 +16,12 @@ func main() {
 	}
 	arg.MustParse(&args)
 
-
-	store := leaderboard.NewStore[api.Decimal, api.UserID]()
+	store := lb.NewBtreeStore[api.Decimal, api.UserID](
+		api.DecimalLess,
+		api.DecimalEquals,
+		lb.StdLess[api.UserID],
+		lb.StdEquals[api.UserID],
+	)
 
 	r := gin.New()
 	apiImpl := api.NewLeaderBoardService(store)
