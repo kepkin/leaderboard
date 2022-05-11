@@ -29,7 +29,7 @@ func NewTestData() (TestData, error) {
 	err := os.Mkdir(reportDirPath, 0750)
 
 	return TestData{
-		testFileName:  "./data/test_10.csv",
+		testFileName:  "./data/insertion.csv",
 		reportDirPath: reportDirPath,
 	}, err
 }

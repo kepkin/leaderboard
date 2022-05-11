@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"io"
+	"io/ioutil"
 	"time"
 
 	lbtest "gihtub.com/kepkin/leaderboard/test"
@@ -17,7 +19,19 @@ type cmdServerInit struct {
 	InitTime time.Duration
 }
 
-func initServer(args cmdServerInit) {
+func httpClient() *http.Client {
+    client := &http.Client{
+        Transport: &http.Transport{
+            MaxIdleConnsPerHost: 20,
+        },
+        Timeout: 10 * time.Second,
+    }
+
+    return client
+}
+
+func serverInit(args *cmdServerInit) {
+	c := httpClient()
 	testData, err := lbtest.NewTestData()
 	if err != nil {
 		log.Fatal(err)
@@ -35,14 +49,15 @@ func initServer(args cmdServerInit) {
 		if err != nil {
 			log.Fatal(err)
 		}
-		resp, err := http.DefaultClient.Do(req)
+		res, err := c.Do(req)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatal(fmt.Errorf("couldn't make request: %w", err))
 		}
-		defer resp.Body.Close()
+		io.Copy(ioutil.Discard, res.Body)
+		res.Body.Close()
 
-		if resp.StatusCode != http.StatusOK {
-			log.Fatal(err)
+		if res.StatusCode != http.StatusOK {
+			log.Fatal(res.StatusCode)
 		}
 	})
 

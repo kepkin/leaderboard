@@ -19,8 +19,6 @@ import (
 	lb "gihtub.com/kepkin/leaderboard"
 )
 
-var testFiles []string = []string{"./data/test_10.csv"}
-
 var (
 	ldtestInitTime time.Duration
 )

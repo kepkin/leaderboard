@@ -51,7 +51,7 @@ func genAmmoData(args *cmdAmmo) {
 		req, lastNewUser = lbtest.MakeRequest(lastNewUser)
 
 		val := fmt.Sprintf("%v", req.Value)
-		fmt.Fprintf(file, "%v /%v\n", len(val), req.User)
+		fmt.Fprintf(file, "%v /results/%v\n", len(val), req.User)
 		fmt.Fprintf(file, "%v\n", val)
 	}
 
@@ -106,5 +106,7 @@ func main() {
 		genAmmoData(args.Ammo)
 	case args.Init != nil:
 		getInitial(args.Init)
+	case args.ServerInit != nil:
+		serverInit(args.ServerInit)
 	}
 }

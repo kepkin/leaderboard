@@ -13,27 +13,31 @@ import humanize as hu
 # ticks_x = ticker.FuncFormatter(lambda x, pos: hu.intword(x, format='%.1f'))
 # ax = axes.Axes(plt.figure(), ylabel="tps", xlabel="total insertions")
 
+benchmarkReportFolder = sys.argv[1]
+
+
 fig = plt.figure()
-for path in glob.glob(os.path.join(sys.argv[1], "insertion-*.csv")):
-	workDir = os.path.dirname(path)
+ax = fig.add_subplot()
+insertionDF = pd.read_csv("./data/insertion.csv", index_col=0)
+ax.hist(insertionDF, bins=600, histtype='step')
+
+plt.savefig(os.path.join(benchmarkReportFolder, "input-data.png"))
+fig.clear()
+
+for path in glob.glob(os.path.join(benchmarkReportFolder, "insertion-*.csv")):
+	benchmarkReportFolder = os.path.dirname(path)
 	filename = os.path.basename(path)
 	filenameWithoutExt = filename.split(".")[0]
 	operation, struct, data = filenameWithoutExt.split('-', 3)
-	msft = pd.read_csv(path, index_col=0)
-
-	if len(sys.argv) == 3: 
-		msft = msft[sys.argv[2]]
-
-	print(msft)
+	dataFrame = pd.read_csv(path, index_col=0)
 
 	fig.clear()
 	ax1 = fig.add_subplot()
-	ax1.plot(msft.index, msft['tps']) #, grid=True)
+	ax1.plot(dataFrame.index, dataFrame['tps']) #, grid=True)
 	# ax1.xaxis.set_major_formatter(ticks_x)
 	ax1.set_ylabel("tps")
 	ax1.set_xlabel("total insertions")
-	ax1.set_title(operation)
+	ax1.set_title("{} - {} - {}".format(operation, struct, data))
 	ax1.grid(True)
-	#msft.plot(ylabel="tps", xlabel="total insertions", title=operation, grid=True)
 
-	plt.savefig(os.path.join(workDir, filenameWithoutExt + ".png"))
+	plt.savefig(os.path.join(benchmarkReportFolder, filenameWithoutExt + ".png"))

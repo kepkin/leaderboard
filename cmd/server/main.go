@@ -24,6 +24,7 @@ func main() {
 	)
 
 	r := gin.New()
+	r.Use(gin.Logger())
 	apiImpl := api.NewLeaderBoardService(store)
 	api.RegisterRoutes(r, apiImpl)
 

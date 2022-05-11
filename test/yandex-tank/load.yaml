@@ -1,5 +1,5 @@
 phantom:
-  address: 192.168.215.19:8080
+  address: 192.168.159.19:8080
   #address: app:8080 # [Target's address]:[target's port]
   writelog: proto_warning
 
@@ -8,7 +8,7 @@ phantom:
 
   load_profile:
     load_type: rps # schedule load by defining requests per second
-    schedule: line(100, 1000, 10m) # starting from 1rps growing linearly to 10rps during 10 minutes
+    schedule: line(1000, 10000, 10m) # starting from 1rps growing linearly to 10rps during 10 minutes
 
 console:
   enabled: true # enable console output
