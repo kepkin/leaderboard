@@ -33,12 +33,7 @@ func logMem(b *testing.B, prefix string) {
 	b.Logf("%v mem %v", prefix, memStat.HeapAlloc)
 }
 
-func runDataTest[K any](b *testing.B, prefix string, factoryFunc func(*testing.B) K, insertFunc func(sut K, score float64, user string), updateFunc func(sut K, score float64, user string)) {
-	testData, err := NewTestData()
-	if err != nil {
-		b.Fatal(err)
-	}
-
+func runDataTest[K any](b *testing.B, testData *TestData, prefix string, factoryFunc func(*testing.B) K, insertFunc func(sut K, score float64, user string), updateFunc func(sut K, score float64, user string)) {
 	variants, err := testData.GetVariants()
 	if err != nil {
 		b.Fatal(err)
@@ -87,7 +82,12 @@ func runDataTest[K any](b *testing.B, prefix string, factoryFunc func(*testing.B
 }
 
 func BenchmarkStores(b *testing.B) {
-	runDataTest(b, "btree",
+	testData, err := NewTestData()
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	runDataTest(b, testData, "btree",
 		func(b *testing.B) *lb.BtreeStore[float64, string] {
 			res := lb.NewBtreeStore[float64, string](
 				lb.StdLess[float64],
@@ -114,7 +114,7 @@ func BenchmarkStores(b *testing.B) {
 		},
 	)
 
-	runDataTest(b, "heap",
+	runDataTest(b, testData, "heap",
 		func(b *testing.B) *lb.HeapStore[float64, string] {
 			return lb.NewHeapStore[float64, string](func(a, b float64) bool { return a < b })
 		},

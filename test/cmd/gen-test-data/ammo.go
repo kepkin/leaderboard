@@ -2,12 +2,8 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"log"
-	"strings"
-
-	"github.com/alexflint/go-arg"
-	"gonum.org/v1/gonum/stat/distuv"
+	"os"
 
 	lbtest "gihtub.com/kepkin/leaderboard/test"
 )

@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"log"
-	"net/http"
 	"io"
 	"io/ioutil"
+	"log"
+	"net/http"
 	"time"
 
 	lbtest "gihtub.com/kepkin/leaderboard/test"
@@ -20,14 +20,14 @@ type cmdServerInit struct {
 }
 
 func httpClient() *http.Client {
-    client := &http.Client{
-        Transport: &http.Transport{
-            MaxIdleConnsPerHost: 20,
-        },
-        Timeout: 10 * time.Second,
-    }
+	client := &http.Client{
+		Transport: &http.Transport{
+			MaxIdleConnsPerHost: 20,
+		},
+		Timeout: 10 * time.Second,
+	}
 
-    return client
+	return client
 }
 
 func serverInit(args *cmdServerInit) {

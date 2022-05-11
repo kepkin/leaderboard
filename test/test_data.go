@@ -23,12 +23,12 @@ type TestData struct {
 	reportDirPath string
 }
 
-func NewTestData() (TestData, error) {
+func NewTestData() (*TestData, error) {
 
 	reportDirPath := fmt.Sprintf("./benchmark-report-%v", time.Now().Format(time.RFC3339))
 	err := os.Mkdir(reportDirPath, 0750)
 
-	return TestData{
+	return &TestData{
 		testFileName:  "./data/insertion.csv",
 		reportDirPath: reportDirPath,
 	}, err
