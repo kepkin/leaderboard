@@ -6,6 +6,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func bl(v int) Tuple[int, int] {
+	return Tuple[int, int]{v, v}
+}
+
 func buildStoreWithData(data ...int) *BtreeStore[int, int] {
 	r := NewBtreeStore[int, int](
 		StdLess[int],
@@ -26,7 +30,7 @@ func TestStoreGettingElementByValue(t *testing.T) {
 	sut := buildStoreWithData(randomIntData...)
 
 	v := sut.Get(11)
-	assert.Equal(t, 11, v.Value().Value, "")
+	assert.Equal(t, 11, v.Value().Val, "")
 }
 
 func TestStoreGettingElementWithLeaderTabel(t *testing.T) {
@@ -44,7 +48,7 @@ func TestStoreGettingElementWithLeaderTabel(t *testing.T) {
 	}
 
 	for i := 0; i < tableSize-leftIdx && itr.Valid(); i += 1 {
-		leaderTable = append(leaderTable, itr.Value().Value)
+		leaderTable = append(leaderTable, itr.Value().Val)
 		itr.Next()
 	}
 	itr.Close()

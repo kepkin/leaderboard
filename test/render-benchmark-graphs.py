@@ -21,6 +21,8 @@ ax = fig.add_subplot()
 insertionDF = pd.read_csv("./data/insertion.csv", index_col=0)
 ax.hist(insertionDF, bins=600, histtype='step')
 
+ax.legend(insertionDF.columns)
+
 plt.savefig(os.path.join(benchmarkReportFolder, "input-data.png"))
 fig.clear()
 

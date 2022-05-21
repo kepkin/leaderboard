@@ -5,8 +5,8 @@ import (
 	// "golang.org/x/exp/constraints"
 )
 
-func Allocate[K any, V any](tree *Node[K, V], dst []BTreeLeaf[K, V]) []BTreeLeaf[K, V] {
-	visiter := func(v BTreeLeaf[K, V]) {
+func Allocate[K any](tree *Node[K], dst []K) []K {
+	visiter := func(v K) {
 		dst = append(dst, v)
 	}
 	tree.DepthFirstTraverse(visiter)
@@ -14,26 +14,10 @@ func Allocate[K any, V any](tree *Node[K, V], dst []BTreeLeaf[K, V]) []BTreeLeaf
 	return dst
 }
 
-type AllocateVV[K any, V any] struct {
-	Data []V
-}
-
-func (a *AllocateVV[K, V]) visit(v BTreeLeaf[K, V]) {
-	a.Data = append(a.Data, v.Value)
-}
-
-func AllocateV[K any, V any](tree *Node[K, V], dst []V) []V {
-	visiter := func(v BTreeLeaf[K, V]) {
-		dst = append(dst, v.Value)
-	}
-	tree.DepthFirstTraverse(visiter)
-	return dst
-}
-
-func PrintTree[K any, V any](tree *Node[K, V]) {
+func PrintTree[K any](tree *Node[K]) {
 	data := make([]K, 0, 100)
-	visiter := func(v BTreeLeaf[K, V]) {
-		data = append(data, v.OrderKey)
+	visiter := func(v K) {
+		data = append(data, v)
 	}
 	tree.DepthFirstTraverse(visiter)
 	fmt.Println(data)

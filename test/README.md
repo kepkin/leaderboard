@@ -16,6 +16,11 @@ To generate ammo for web API testing:
 	cd test/
 	python3 render-benchmark-graphs.py benchmark-report-2022-05-11T12\:38\:20+03\:00/
 
+### Run short test while developing tests
+
+	go test ./test -bench='.' -v -ldtestInitDuration 2s
+
+
 ## Running yandex tank
 
 Start server

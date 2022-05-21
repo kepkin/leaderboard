@@ -6,6 +6,7 @@ import (
 	"os"
 	"testing"
 	"time"
+
 	// "io/fs"
 	"fmt"
 
@@ -101,13 +102,13 @@ func BenchmarkStores(b *testing.B) {
 			return res
 		},
 		func(sut *lb.BtreeStore[float64, string], score float64, user string) {
-			it, _ := sut.Insert(lb.BTreeLeaf[float64, string]{OrderKey: score, Value: user})
+			it, _ := sut.Insert(lb.Tuple[float64, string]{Key: score, Val: user})
 			if it != nil {
 				it.Close()
 			}
 		},
 		func(sut *lb.BtreeStore[float64, string], score float64, user string) {
-			it, _ := sut.Upsert(lb.BTreeLeaf[float64, string]{OrderKey: score, Value: user})
+			it, _ := sut.Upsert(lb.Tuple[float64, string]{Key: score, Val: user})
 			if it != nil {
 				it.Close()
 			}

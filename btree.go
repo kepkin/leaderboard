@@ -15,71 +15,63 @@ func StdEquals[K constraints.Ordered](a, b K) bool {
 	return a == b
 }
 
-type OnSplitTrigger[K any, V any] func(BTreeLeaf[K, V], *Node[K, V], int)
+type OnSplitTrigger[K any] func(K, *Node[K], int)
 type LessFuncType[K any] func(a, b K) bool
 type EqualsFuncType[K any] func(a, b K) bool
 
-func DummyOnSplit[K any, V any](BTreeLeaf[K, V], *Node[K, V], int) {}
+func DummyOnSplit[K any](K, *Node[K], int) {}
 
-type BTreeLeaf[K any, V any] struct {
-	OrderKey K
-	Value    V
-}
-
-type NodeSettings[K any, V any] struct {
+type NodeSettings[K any] struct {
 	Size          int
 	LessFunc      LessFuncType[K]
 	EqualsFuncKey EqualsFuncType[K]
-	EqualsFuncVal EqualsFuncType[V]
 
-	OnSplit         OnSplitTrigger[K, V]
+	OnSplit         OnSplitTrigger[K]
 	treeRebalanceMu sync.RWMutex
 }
 
-type Node[K any, V any] struct {
-	Parent *Node[K, V]
+type Node[K any] struct {
+	Parent *Node[K]
 	Pidx   int
-	Data   []BTreeLeaf[K, V]
-	Childs []*Node[K, V]
+	Data   []K
+	Childs []*Node[K]
 
 	mu sync.Mutex
 
-	s *NodeSettings[K, V]
+	s *NodeSettings[K]
 }
 
-func NewNode[K any, V any](
+func NewNode[K any](
 	size int,
 	lessFunc LessFuncType[K],
 	equalsFuncKey EqualsFuncType[K],
-	equalsFuncVal EqualsFuncType[V],
-	onSplit OnSplitTrigger[K, V],
-) *Node[K, V] {
+	onSplit OnSplitTrigger[K],
+) *Node[K] {
 
 	if onSplit == nil {
-		onSplit = DummyOnSplit[K, V]
+		onSplit = DummyOnSplit[K]
 	}
 
-	return &Node[K, V]{
+	return &Node[K]{
 		Parent: nil,
-		Data:   make([]BTreeLeaf[K, V], 0, size),
-		Childs: make([]*Node[K, V], size+1),
+		Data:   make([]K, 0, size),
+		Childs: make([]*Node[K], size+1),
 
-		s: &NodeSettings[K, V]{
+		s: &NodeSettings[K]{
 			Size:            size,
 			OnSplit:         onSplit,
 			LessFunc:        lessFunc,
 			EqualsFuncKey:   equalsFuncKey,
-			EqualsFuncVal:   equalsFuncVal,
 			treeRebalanceMu: sync.RWMutex{},
 		},
 	}
 }
 
-func newTreeNode[K any, V any](seed *Node[K, V], parent *Node[K, V]) *Node[K, V] {
-	return &Node[K, V]{
+func newTreeNode[K any](seed *Node[K], parent *Node[K]) *Node[K] {
+	return &Node[K]{
 		Parent: parent,
-		Data:   make([]BTreeLeaf[K, V], 0, seed.s.Size),
-		Childs: make([]*Node[K, V], seed.s.Size+1),
+		Data:   make([]K, 0, seed.s.Size),
+		Childs: make([]*Node[K], seed.s.Size+1),
 		s:      seed.s,
 	}
 }
@@ -89,11 +81,12 @@ func newTreeNode[K any, V any](seed *Node[K, V], parent *Node[K, V]) *Node[K, V]
 //  - Childs[idx] == nil
 //  - Childs[:last:] == nil
 //  - len(Data) < Size
-func (n *Node[K, V]) insertAt(idx int, newValue BTreeLeaf[K, V]) {
+func (n *Node[K]) insertAt(idx int, newValue K) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 
-	n.Data = append(n.Data, BTreeLeaf[K, V]{})
+	var kk K
+	n.Data = append(n.Data, kk)
 	copy(n.Data[idx+1:], n.Data[idx:])
 	n.Data[idx] = newValue
 	for i := idx; i < len(n.Data); i++ {
@@ -112,14 +105,14 @@ func (n *Node[K, V]) insertAt(idx int, newValue BTreeLeaf[K, V]) {
 	}
 }
 
-func (n *Node[K, V]) Split() *Node[K, V] {
+func (n *Node[K]) Split() *Node[K] {
 	upperNode := n.Parent
 	returnNode := n
 	leftNode := n
 
 	if upperNode == nil {
 
-		upperNode = newTreeNode[K, V](n, nil)
+		upperNode = newTreeNode(n, nil)
 		leftNode.Parent = upperNode
 		returnNode = upperNode
 
@@ -132,7 +125,7 @@ func (n *Node[K, V]) Split() *Node[K, V] {
 		// leftNode.Parent = upperNode
 	}
 
-	rightNode := newTreeNode[K, V](n, upperNode)
+	rightNode := newTreeNode(n, upperNode)
 
 	pivotValue := leftNode.Data[n.s.Size/2]
 
@@ -162,7 +155,7 @@ func (n *Node[K, V]) Split() *Node[K, V] {
 	return returnNode
 }
 
-func (n *Node[K, V]) Insert(newValue BTreeLeaf[K, V]) (*Node[K, V], int) {
+func (n *Node[K]) Insert(newValue K) (*Node[K], int) {
 	var needRebalance = false
 	var idx int
 
@@ -186,7 +179,7 @@ func (n *Node[K, V]) Insert(newValue BTreeLeaf[K, V]) (*Node[K, V], int) {
 }
 
 // bool - returns if rebalancing is needed
-func (n *Node[K, V]) InsertLocked(newValue BTreeLeaf[K, V], rebalance bool) (*Node[K, V], int, bool) {
+func (n *Node[K]) InsertLocked(newValue K, rebalance bool) (*Node[K], int, bool) {
 	lookupNode := n
 	var needRebalance bool = false
 
@@ -219,7 +212,7 @@ func (n *Node[K, V]) InsertLocked(newValue BTreeLeaf[K, V], rebalance bool) (*No
 	return n, idx, needRebalance
 }
 
-func (n *Node[K, V]) Upsert(newValue BTreeLeaf[K, V]) (*Node[K, V], int) {
+func (n *Node[K]) Upsert(newValue K) (*Node[K], int) {
 	localNode, idx := n.Find(newValue)
 	if localNode != nil {
 		localNode.Data[idx] = newValue
@@ -229,23 +222,13 @@ func (n *Node[K, V]) Upsert(newValue BTreeLeaf[K, V]) (*Node[K, V], int) {
 	return n.Insert(newValue)
 }
 
-func (n *Node[K, V]) LocalFindByValue(value V) (BTreeLeaf[K, V], bool) {
-	for _, v := range n.Data {
-		if n.s.EqualsFuncVal(v.Value, value) {
-			return v, true
-		}
-	}
-
-	return BTreeLeaf[K, V]{}, false
-}
-
-func (n *Node[K, V]) Find(value BTreeLeaf[K, V]) (*Node[K, V], int) {
+func (n *Node[K]) Find(value K) (*Node[K], int) {
 	for i, v := range n.Data {
-		if n.s.LessFunc(v.OrderKey, value.OrderKey) {
+		if n.s.LessFunc(v, value) {
 			continue
 		}
 
-		if n.s.EqualsFuncKey(value.OrderKey, v.OrderKey) {
+		if n.s.EqualsFuncKey(value, v) {
 			return n, i
 		} else { // Means we need to search left node
 			if n.Childs[i] == nil {
@@ -265,11 +248,11 @@ func (n *Node[K, V]) Find(value BTreeLeaf[K, V]) (*Node[K, V], int) {
 
 //TODO: write Remove
 
-func (n *Node[K, V]) removeChild(idx int) {
+func (n *Node[K]) removeChild(idx int) {
 	n.Childs[idx] = nil
 }
 
-func (n *Node[K, V]) RemoveByLocalIdx(idx int) bool {
+func (n *Node[K]) RemoveByLocalIdx(idx int) bool {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 
@@ -320,9 +303,9 @@ func (n *Node[K, V]) RemoveByLocalIdx(idx int) bool {
 	return true
 }
 
-func (n Node[K, V]) FindIdxToInsert(newValue BTreeLeaf[K, V]) int {
+func (n Node[K]) FindIdxToInsert(newValue K) int {
 	for i, v := range n.Data {
-		if n.s.LessFunc(newValue.OrderKey, v.OrderKey) {
+		if n.s.LessFunc(newValue, v) {
 			return i
 		}
 	}
@@ -330,11 +313,11 @@ func (n Node[K, V]) FindIdxToInsert(newValue BTreeLeaf[K, V]) int {
 	return len(n.Data)
 }
 
-func (n *Node[K, V]) stringHelper() string {
+func (n *Node[K]) stringHelper() string {
 	return fmt.Sprint(n.Data)
 }
 
-func (n *Node[K, V]) stringLoopHelper() string {
+func (n *Node[K]) stringLoopHelper() string {
 	res := fmt.Sprintf(" {%v}", n.Data)
 
 	for i, v := range n.Childs {
@@ -361,7 +344,7 @@ func (n *Node[K, V]) stringLoopHelper() string {
 	return res
 }
 
-func (n *Node[K, V]) DepthFirstTraverse(visiter func(v BTreeLeaf[K, V])) {
+func (n *Node[K]) DepthFirstTraverse(visiter func(v K)) {
 	for i, v := range n.Childs {
 
 		if v != nil {
@@ -374,7 +357,7 @@ func (n *Node[K, V]) DepthFirstTraverse(visiter func(v BTreeLeaf[K, V])) {
 	}
 }
 
-func (n *Node[K, V]) String() string {
+func (n *Node[K]) String() string {
 
 	res := fmt.Sprint(n.Data)
 	res += "\n"
@@ -382,10 +365,10 @@ func (n *Node[K, V]) String() string {
 	return res
 }
 
-func (n *Node[K, V]) Iter(idx int) *Iter[K, V] {
-	return newIter[K, V](n, idx)
+func (n *Node[K]) Iter(idx int) *Iter[K] {
+	return newIter(n, idx)
 }
 
-func (n *Node[K, V]) At(idx int) BTreeLeaf[K, V] {
+func (n *Node[K]) At(idx int) K {
 	return n.Data[idx]
 }

@@ -58,24 +58,25 @@ func (p LeaderBoardServiceImpl) GetLeaderBoard(in GetLeaderBoardRequest, c *gin.
 
 }
 
-func GetAdjacentLeaders[K any, V any](itr *leaderboard.Iter[K, V], visiter func(leaderboard.BTreeLeaf[K, V]), before int, after int) {
-	for ; before > 0 && itr.Valid(); before -= 1 {
-		itr.Prev()
-	}
+//TODO
+// func GetAdjacentLeaders[K any, V any](itr *leaderboard.Iter[leaderboard.Tuple[K, V]], visiter func(leaderboard.Tuple[K, V]), before int, after int) {
+// 	for ; before > 0 && itr.Valid(); before -= 1 {
+// 		itr.Prev()
+// 	}
 
-	if !itr.Valid() {
-		itr.Next()
-	}
+// 	if !itr.Valid() {
+// 		itr.Next()
+// 	}
 
-	for i := 0; i < after+before+1 && itr.Valid(); i += 1 {
-		visiter(itr.Value())
-		itr.Next()
-	}
+// 	for i := 0; i < after+before+1 && itr.Valid(); i += 1 {
+// 		visiter(itr.Value())
+// 		itr.Next()
+// 	}
 
-}
+// }
 
 func (p LeaderBoardServiceImpl) PostResults(in PostResultsRequest, c *gin.Context) {
-	itr, err := p.store.Upsert(leaderboard.BTreeLeaf[Decimal, UserID]{Decimal(in.Body.JSON), UserID(in.Path.UserID)})
+	itr, err := p.store.Upsert(leaderboard.Tuple[Decimal, UserID]{Decimal(in.Body.JSON), UserID(in.Path.UserID)})
 	if itr != nil {
 		defer itr.Close()
 	}

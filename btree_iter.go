@@ -4,18 +4,18 @@ import (
 	"sync"
 )
 
-func (n *Node[K, V]) Begin() *Iter[K, V] {
+func (n *Node[K]) Begin() *Iter[K] {
 	if n.Childs[0] != nil {
 		return n.Childs[0].Begin()
 	}
 
-	return newIter[K, V](n, 0)
+	return newIter[K](n, 0)
 }
 
-func newIter[K any, V any](n *Node[K, V], idx int) *Iter[K, V] {
+func newIter[K any](n *Node[K], idx int) *Iter[K] {
 	//TODO
 	//n.treeRebalanceMu.RLock()
-	return &Iter[K, V]{n, idx, IterStateValid, &n.s.treeRebalanceMu}
+	return &Iter[K]{n, idx, IterStateValid, &n.s.treeRebalanceMu}
 }
 
 type iterState int
@@ -26,8 +26,8 @@ const (
 	IterStateStart
 )
 
-type Iter[K any, V any] struct {
-	n *Node[K, V]
+type Iter[K any] struct {
+	n *Node[K]
 	i int
 
 	state iterState
@@ -35,28 +35,28 @@ type Iter[K any, V any] struct {
 	treeRebalanceMu *sync.RWMutex
 }
 
-func (it *Iter[K, V]) Value() BTreeLeaf[K, V] {
+func (it *Iter[K]) Value() K {
 	return it.n.Data[it.I()]
 }
 
-func (it *Iter[K, V]) I() int {
+func (it *Iter[K]) I() int {
 	return it.i
 }
 
-func (it *Iter[K, V]) Valid() bool {
+func (it *Iter[K]) Valid() bool {
 	return it.state == IterStateValid
 }
 
-func (it *Iter[K, V]) Close() {
+func (it *Iter[K]) Close() {
 	//TODO
 	//it.treeRebalanceMu.RUnlock()
 }
 
-func IterEquals[K any, V any](a, b Iter[K, V]) bool {
+func IterEquals[K any, V any](a, b Iter[K]) bool {
 	return a.n == b.n && a.i == b.i
 }
 
-func (it *Iter[K, V]) Prev() *Iter[K, V] {
+func (it *Iter[K]) Prev() *Iter[K] {
 	if it.state == IterStateStart {
 		return it
 	} else if it.state == IterStateStart {
@@ -81,9 +81,14 @@ func (it *Iter[K, V]) Prev() *Iter[K, V] {
 	}
 
 	for it.n.Parent != nil && it.I() == 0 {
-		if it.n.Pidx == 0 {
-			it.state = IterStateStart
-			return it
+		for it.n.Pidx == 0 {
+			it.i = it.n.Pidx
+			it.n = it.n.Parent
+
+			if it.n.Parent == nil && it.i == 0 {
+				it.state = IterStateStart
+				return it
+			}
 		}
 		it.i = it.n.Pidx - 1
 		it.n = it.n.Parent
@@ -95,7 +100,7 @@ func (it *Iter[K, V]) Prev() *Iter[K, V] {
 	return it
 }
 
-func (it *Iter[K, V]) Next() *Iter[K, V] {
+func (it *Iter[K]) Next() *Iter[K] {
 	if it.state == IterStateEnd {
 		return it
 	} else if it.state == IterStateStart {
