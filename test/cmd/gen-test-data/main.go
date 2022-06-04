@@ -4,7 +4,7 @@ import (
 	"github.com/alexflint/go-arg"
 )
 
-const InitialDataN = 10_000_000
+const InitialDataN = 100_000 //10_000_000
 const RequestsN = 10_000_000
 const UpperBoundRand = 20
 

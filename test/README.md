@@ -14,7 +14,31 @@ To generate ammo for web API testing:
 	go test ./test -bench='.' -v -timeout 300m
 
 	cd test/
-	python3 render-benchmark-graphs.py benchmark-report-2022-05-11T12\:38\:20+03\:00/
+	./render-benchmark-graphs.py plotBenchmarkFolder benchmark-report-2022-05-11T12\:38\:20+03\:00/
+
+### Comparing with previous version
+
+To compare results with previous version you can specify two directories like that:
+
+	./render-benchmark-graphs.py plotBenchmarkFolder \
+	  benchmark-report-2022-05-11T12\:38\:20+03\:00/ \
+	  benchmark-report-2022-05-20T12\:38\:20+03\:00/
+
+To compare two specific insertion rates
+
+	./render-benchmark-graphs.py cmpInsertionCSV \
+	  benchmark-report-2022-05-22T16\:45\:56+03\:00/insertion-btree-m0s0.25.csv \
+	  benchmark-report-2022-05-22T16\:45\:56+03\:00/insertion-btree-m0s1.csv \
+	  benchmark-report-2022-05-22T16\:45\:56+03\:00/insertion-btree-m0s1-vs-m0s0.25
+
+
+
+### Comparing with REDIS
+
+Start Redis (with parameters not to write RDB during the test)
+	docker run --rm -p 6379:6379 -it redis --save 3000 100000000
+
+
 
 ### Run short test while developing tests
 

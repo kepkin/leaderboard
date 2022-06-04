@@ -21,12 +21,23 @@ func getInitial(args *cmdInit) {
 	}
 
 	variants := []distuv.LogNormal{
-		{Mu: 0, Sigma: 1},
-		{Mu: 0, Sigma: 0.25},
-		{Mu: 0, Sigma: 0.5},
-		{Mu: 1, Sigma: 1},
-		{Mu: 1, Sigma: 0.25},
-		{Mu: 1, Sigma: 0.5},
+		// {Mu: 0, Sigma: 1},
+		// {Mu: 0, Sigma: 0.25},
+		// {Mu: 0, Sigma: 0.5},
+		// {Mu: 1, Sigma: 1},
+		// {Mu: 1, Sigma: 0.25},
+		// {Mu: 1, Sigma: 0.5},
+		// {Mu: 0, Sigma: 1},
+		// {Mu: 1, Sigma: 1},
+		// {Mu: 2, Sigma: 1},
+		// {Mu: 3, Sigma: 1},
+		// {Mu: 4, Sigma: 1},
+		{Mu: 5, Sigma: 1},
+		// {Mu: 6, Sigma: 1},
+		// {Mu: 7, Sigma: 1},
+		// {Mu: 8, Sigma: 1},
+		// {Mu: 9, Sigma: 1},
+		// {Mu: 10, Sigma: 1},
 	}
 
 	headers := make([]string, 0)

@@ -6,6 +6,7 @@ import (
 	"os"
 	"testing"
 	"time"
+	"unsafe"
 
 	// "io/fs"
 	"fmt"
@@ -13,11 +14,8 @@ import (
 	"runtime"
 	"runtime/debug"
 
-	"unsafe"
-
-	_ "github.com/stretchr/testify/assert"
-
 	lb "gihtub.com/kepkin/leaderboard"
+	_ "github.com/stretchr/testify/assert"
 )
 
 var (
@@ -124,6 +122,18 @@ func BenchmarkStores(b *testing.B) {
 		},
 		func(sut *lb.HeapStore[float64, string], score float64, user string) {
 			sut.Update(score, user)
+		},
+	)
+
+	runDataTest(b, testData, "redis",
+		func(b *testing.B) *rdstore.RDStore {
+			return rdstore.New()
+		},
+		func(sut *rdstore.RDStore, score float64, user string) {
+			sut.Insert(score, user)
+		},
+		func(sut *rdstore.RDStore, score float64, user string) {
+			sut.Insert(score, user)
 		},
 	)
 

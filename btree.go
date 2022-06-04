@@ -223,12 +223,18 @@ func (n *Node[K]) Upsert(newValue K) (*Node[K], int) {
 }
 
 func (n *Node[K]) Find(value K) (*Node[K], int) {
-	for i, v := range n.Data {
+	if len(n.Data) == 0 {
+		return nil, 1
+	}
+
+	i := n.FindIdxToInsert(value)
+	for ; i < len(n.Data); i++ {
+		v := n.Data[i]
 		if n.s.LessFunc(v, value) {
 			continue
 		}
 
-		if n.s.EqualsFuncKey(value, v) {
+		if n.s.EqualsFuncKey(v, value) {
 			return n, i
 		} else { // Means we need to search left node
 			if n.Childs[i] == nil {
@@ -245,8 +251,6 @@ func (n *Node[K]) Find(value K) (*Node[K], int) {
 
 	return n.Childs[len(n.Data)].Find(value)
 }
-
-//TODO: write Remove
 
 func (n *Node[K]) removeChild(idx int) {
 	n.Childs[idx] = nil
@@ -304,13 +308,27 @@ func (n *Node[K]) RemoveByLocalIdx(idx int) bool {
 }
 
 func (n Node[K]) FindIdxToInsert(newValue K) int {
-	for i, v := range n.Data {
-		if n.s.LessFunc(newValue, v) {
-			return i
+	l := 0
+	r := len(n.Data)
+
+	if r == 0 {
+		return 0
+	}
+
+	for r-l > 1 {
+		p := (r-l)/2 + l
+		if n.s.LessFunc(newValue, n.Data[p]) {
+			r = p
+		} else {
+			l = p
 		}
 	}
 
-	return len(n.Data)
+	if n.s.LessFunc(n.Data[l], newValue) {
+		return r
+	} else {
+		return l
+	}
 }
 
 func (n *Node[K]) stringHelper() string {

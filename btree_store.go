@@ -44,7 +44,7 @@ func NewBtreeStore[K any, V any](
 		res.onSplit,
 	)
 	res.pkbtree = NewNode(
-		5,
+		101,
 		func(a, b Tuple[V, pkPair[Tuple[K, V]]]) bool { return valLessFunc(a.Key, b.Key) },
 		func(a, b Tuple[V, pkPair[Tuple[K, V]]]) bool { return valEqualsFunc(a.Key, b.Key) },
 		nil)

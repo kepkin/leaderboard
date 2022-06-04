@@ -61,5 +61,5 @@ func TestStoreGettingElementWithLeaderTabel(t *testing.T) {
 	for ; it.Valid(); it.Next() {
 		t.Log(it.Value())
 	}
-	t.Fatal()
+	// t.Fatal()
 }
