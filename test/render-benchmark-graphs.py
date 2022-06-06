@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 
+from collections import namedtuple
 from fileinput import filename
+from typing import NamedTuple
 import matplotlib.pyplot as plt
 import matplotlib.cbook as cbook
 import matplotlib.axes as axes
 import matplotlib.ticker as ticker
 
+import re
 import argparse
 import numpy as np
 import pandas as pd
@@ -39,9 +42,11 @@ class InsertionPlotBuilder:
 		self.path = path
 
 	def GetInsertionMetaInfo(self):
-		filenameWithoutExt = GetFilenameWithoutExt(self.path)
-		operation, struct, data = filenameWithoutExt.split('-', 3)
-		return operation, struct, data
+		filename = os.path.basename(self.path)
+		m = re.match(r"(?P<operation>\w+)-(?P<struct>[a-zA-Z0-9-]+)-(?P<data>.*).csv", filename)
+		if m is None:
+			raise Exception("Regexp failed for {}".format(filename))
+		return m.group("operation"), m.group("struct"), m.group("data")
 
 	def BuildPlot(self, ax, title=None, label=None):
 		if title is None:
@@ -81,28 +86,30 @@ def plotInsertionPlots(targetFolder, comparingFolder=None):
 		filenameWithoutExt = GetFilenameWithoutExt(path)
 		plt.savefig(os.path.join(targetFolder, filenameWithoutExt + ".png"))
 
-def compareTwoIsertionCSVs(pathA, labelA, pathB, labelB, targetFile):
+CmpItem = namedtuple('CmpItem', ['path', 'label'])
+
+#def compareIsertionCSVs(cmpItems: list[CmpItem], targetFile: str):
+def compareIsertionCSVs(cmpItems, targetFile: str):
 	fig.clear()
-	InsPlotBuilder = InsertionPlotBuilder(pathA)
-	InsPlotBuilder.BuildPlot(fig.add_subplot(), label=labelA)
-	InsPlotBuilder = InsertionPlotBuilder(pathB)
-	InsPlotBuilder.BuildPlot(fig.add_subplot(), label=labelB)
+	for item in cmpItems:
+		InsPlotBuilder = InsertionPlotBuilder(item.path)
+		InsPlotBuilder.BuildPlot(fig.add_subplot(), label=item.label)
 	plt.savefig(targetFile + ".png")
 
 	
 def plotBenchmarkFolder(args):
 
 	plotInputInsertions(args.path)
-	plotInsertionPlots(args.path, args.path2)
+	plotInsertionPlots(args.path, args.cmp)
 
 def cmpInsertionCSV(args):
-	InsPlotBuilderA = InsertionPlotBuilder(args.patha)
-	InsPlotBuilderB = InsertionPlotBuilder(args.pathb)
-
-	labelA = "{m[1]} - {m[2]}".format(m=InsPlotBuilderA.GetInsertionMetaInfo())
-	labelB = "{m[1]} - {m[2]}".format(m=InsPlotBuilderB.GetInsertionMetaInfo())
-
-	compareTwoIsertionCSVs(args.patha, labelA, args.pathb, labelB, args.target)
+	cmpItems = []
+	for path in args.paths:
+		InsPlotBuilderA = InsertionPlotBuilder(path)
+		label = "{m[1]} - {m[2]}".format(m=InsPlotBuilderA.GetInsertionMetaInfo())
+		cmpItems.append(CmpItem(path, label))
+	
+	compareIsertionCSVs(cmpItems, args.target)
 
 parser = argparse.ArgumentParser(prog='PROG')
 
@@ -112,14 +119,13 @@ parser_a = subparsers.add_parser('plotBenchmarkFolder', help='a help')
 parser_a.set_defaults(func=plotBenchmarkFolder)
 
 parser_a.add_argument('path', help='path to folder')
-parser_a.add_argument('path2', help='path to folder for building comparions graphs')
+parser_a.add_argument('-cmp', default=None, help='path to folder for building comparions graphs')
 # create the parser for the "b" command
 parser_b = subparsers.add_parser('cmpInsertionCSV', help='compare two specific insertion CSVs')
 parser_b.set_defaults(func=cmpInsertionCSV)
 
-parser_b.add_argument('patha', help='path to a csv')
-parser_b.add_argument('pathb', help='path to b csv')
-parser_b.add_argument('target', help='path to target image without EXT')
+parser_b.add_argument('--target', help='path to target image without EXT')
+parser_b.add_argument('paths', nargs='*', help='path to a csv')
 
 # parse some argument lists
 args = parser.parse_args()

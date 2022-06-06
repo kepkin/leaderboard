@@ -11,7 +11,7 @@ To generate ammo for web API testing:
 
 ## Getting insertion rate
 
-	go test ./test -bench='.' -v -timeout 300m
+	go test ./test  -bench='InsertionRate' -benchtime=1x -v -timeout 300m
 
 	cd test/
 	./render-benchmark-graphs.py plotBenchmarkFolder benchmark-report-2022-05-11T12\:38\:20+03\:00/
@@ -36,6 +36,7 @@ To compare two specific insertion rates
 ### Comparing with REDIS
 
 Start Redis (with parameters not to write RDB during the test)
+	
 	docker run --rm -p 6379:6379 -it redis --save 3000 100000000
 
 

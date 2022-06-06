@@ -34,17 +34,18 @@ func NewBtreeStore[K any, V any](
 	keyEqualsFunc EqualsFuncType[K],
 	valLessFunc LessFuncType[V],
 	valEqualsFunc EqualsFuncType[V],
+	size int,
 ) *BtreeStore[K, V] {
 	res := BtreeStore[K, V]{}
 
 	res.btree = NewNode(
-		101,
+		size,
 		func(a, b Tuple[K, V]) bool { return keyLessFunc(a.Key, b.Key) },
 		func(a, b Tuple[K, V]) bool { return keyEqualsFunc(a.Key, b.Key) },
 		res.onSplit,
 	)
 	res.pkbtree = NewNode(
-		101,
+		size,
 		func(a, b Tuple[V, pkPair[Tuple[K, V]]]) bool { return valLessFunc(a.Key, b.Key) },
 		func(a, b Tuple[V, pkPair[Tuple[K, V]]]) bool { return valEqualsFunc(a.Key, b.Key) },
 		nil)

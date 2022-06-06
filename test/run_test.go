@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"os"
+	"strings"
 	"testing"
 	"time"
 	"unsafe"
@@ -15,15 +16,27 @@ import (
 	"runtime/debug"
 
 	lb "gihtub.com/kepkin/leaderboard"
+	rdstore "gihtub.com/kepkin/leaderboard/test/redis"
 	_ "github.com/stretchr/testify/assert"
 )
 
+type inputInsertionsType []string
+
+func (i *inputInsertionsType) String() string { return "aha" }
+
+func (i *inputInsertionsType) Set(s string) error {
+	*i = append(*i, strings.Split(s, ",")...)
+	return nil
+}
+
 var (
 	ldtestInitTime time.Duration
+	inputList      inputInsertionsType
 )
 
 func init() {
 	flag.DurationVar(&ldtestInitTime, "ldtestInitDuration", 0, "for how long Initialize data. Usually used when changing the ldtest package for debug purposes")
+	flag.Var(&inputList, "inputList", "comma separated list of isertions input types: m01s,m,redis")
 }
 
 func logMem(b *testing.B, prefix string) {
@@ -36,6 +49,10 @@ func runDataTest[K any](b *testing.B, testData *TestData, prefix string, factory
 	variants, err := testData.GetVariants()
 	if err != nil {
 		b.Fatal(err)
+	}
+
+	if len(inputList) != 0 {
+		variants = inputList
 	}
 
 	for i, v := range variants {
@@ -80,63 +97,108 @@ func runDataTest[K any](b *testing.B, testData *TestData, prefix string, factory
 	}
 }
 
-func BenchmarkStores(b *testing.B) {
+func BenchmarkInsertionRate(b *testing.B) {
 	testData, err := NewTestData()
 	if err != nil {
 		b.Fatal(err)
 	}
 
-	runDataTest(b, testData, "btree",
-		func(b *testing.B) *lb.BtreeStore[float64, string] {
-			res := lb.NewBtreeStore[float64, string](
-				lb.StdLess[float64],
-				lb.StdEquals[float64],
-				lb.StdLess[string],
-				lb.StdEquals[string],
+	b.Run("btree", func(b *testing.B) {
+		runDataTest(b, testData, "btree",
+			func(b *testing.B) *lb.BtreeStore[float64, string] {
+				res := lb.NewBtreeStore[float64, string](
+					lb.StdLess[float64],
+					lb.StdEquals[float64],
+					lb.StdLess[string],
+					lb.StdEquals[string],
+					101,
+				)
+
+				b.Logf("btree sizeof empty: %v", unsafe.Sizeof(*res))
+
+				return res
+			},
+			func(sut *lb.BtreeStore[float64, string], score float64, user string) {
+				it, _ := sut.Insert(lb.Tuple[float64, string]{Key: score, Val: user})
+				if it != nil {
+					it.Close()
+				}
+			},
+			func(sut *lb.BtreeStore[float64, string], score float64, user string) {
+				it, _ := sut.Upsert(lb.Tuple[float64, string]{Key: score, Val: user})
+				if it != nil {
+					it.Close()
+				}
+			},
+		)
+	})
+
+	b.Run("heap", func(b *testing.B) {
+		runDataTest(b, testData, "heap",
+			func(b *testing.B) *lb.HeapStore[float64, string] {
+				return lb.NewHeapStore[float64, string](func(a, b float64) bool { return a < b })
+			},
+			func(sut *lb.HeapStore[float64, string], score float64, user string) {
+				sut.Insert(score, user)
+			},
+			func(sut *lb.HeapStore[float64, string], score float64, user string) {
+				sut.Update(score, user)
+			},
+		)
+	})
+
+	b.Run("redis", func(b *testing.B) {
+		runDataTest(b, testData, "redis",
+			func(b *testing.B) *rdstore.RDStore {
+				return rdstore.New()
+			},
+			func(sut *rdstore.RDStore, score float64, user string) {
+				sut.Insert(score, user)
+			},
+			func(sut *rdstore.RDStore, score float64, user string) {
+				sut.Insert(score, user)
+			},
+		)
+	})
+
+}
+
+func BenchmarkBtreeSize(b *testing.B) {
+	testData, err := NewTestData()
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	for _, btreeSize := range []int{3, 5, 51, 101, 501, 1501} {
+		testName := fmt.Sprintf("btree-%v", btreeSize)
+		b.Run(testName, func(b *testing.B) {
+			runDataTest(b, testData, testName,
+				func(b *testing.B) *lb.BtreeStore[float64, string] {
+					res := lb.NewBtreeStore[float64, string](
+						lb.StdLess[float64],
+						lb.StdEquals[float64],
+						lb.StdLess[string],
+						lb.StdEquals[string],
+						btreeSize,
+					)
+
+					return res
+				},
+				func(sut *lb.BtreeStore[float64, string], score float64, user string) {
+					it, _ := sut.Insert(lb.Tuple[float64, string]{Key: score, Val: user})
+					if it != nil {
+						it.Close()
+					}
+				},
+				func(sut *lb.BtreeStore[float64, string], score float64, user string) {
+					it, _ := sut.Upsert(lb.Tuple[float64, string]{Key: score, Val: user})
+					if it != nil {
+						it.Close()
+					}
+				},
 			)
-
-			b.Logf("btree sizeof empty: %v", unsafe.Sizeof(*res))
-
-			return res
-		},
-		func(sut *lb.BtreeStore[float64, string], score float64, user string) {
-			it, _ := sut.Insert(lb.Tuple[float64, string]{Key: score, Val: user})
-			if it != nil {
-				it.Close()
-			}
-		},
-		func(sut *lb.BtreeStore[float64, string], score float64, user string) {
-			it, _ := sut.Upsert(lb.Tuple[float64, string]{Key: score, Val: user})
-			if it != nil {
-				it.Close()
-			}
-		},
-	)
-
-	runDataTest(b, testData, "heap",
-		func(b *testing.B) *lb.HeapStore[float64, string] {
-			return lb.NewHeapStore[float64, string](func(a, b float64) bool { return a < b })
-		},
-		func(sut *lb.HeapStore[float64, string], score float64, user string) {
-			sut.Insert(score, user)
-		},
-		func(sut *lb.HeapStore[float64, string], score float64, user string) {
-			sut.Update(score, user)
-		},
-	)
-
-	runDataTest(b, testData, "redis",
-		func(b *testing.B) *rdstore.RDStore {
-			return rdstore.New()
-		},
-		func(sut *rdstore.RDStore, score float64, user string) {
-			sut.Insert(score, user)
-		},
-		func(sut *rdstore.RDStore, score float64, user string) {
-			sut.Insert(score, user)
-		},
-	)
-
+		})
+	}
 }
 
 func TestMain(m *testing.M) {

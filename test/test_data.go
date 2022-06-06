@@ -24,8 +24,8 @@ type TestData struct {
 }
 
 func NewTestData() (*TestData, error) {
-
-	reportDirPath := fmt.Sprintf("./benchmark-report-%v", time.Now().Format(time.RFC3339))
+	t := time.Now()
+	reportDirPath := fmt.Sprintf("./benchmark-report-%v-%v", t.Format("2006-01-02"), t.Unix())
 	err := os.Mkdir(reportDirPath, 0750)
 
 	return &TestData{
@@ -134,7 +134,6 @@ func (t *TestData) Initialize(ctx context.Context, idx int, insertFunc func(scor
 		// if lastNewUser >= maxUsers {
 		// 	break
 		// }
-
 	}
 
 	return lastNewUser, nil
